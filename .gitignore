@@ -1,0 +1,5 @@
+*~
+*#
+termbox/*
+libtermbox.a
+editor-min
