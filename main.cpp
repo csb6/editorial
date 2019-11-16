@@ -1,5 +1,6 @@
 #include <iostream>
 #include "termbox.h"
+#include <list>
 
 static inline void present(int insert_x, int insert_y);
 
@@ -12,24 +13,34 @@ public:
     {
 	auto status = tb_init();
 	if(status < 0) {
-	    std::cerr << "Error: Termbox failed with code " << status << '\n';
+	    std::clog << "Error: Termbox failed with code " << status << std::endl;
 	    tb_shutdown();
 	    exit(1);
 	}
 	screen_width = tb_width();
 	screen_height = tb_height();
     }
-    void resize()
+    void resize(const std::list<char> &buffer)
     {
+	tb_clear();
 	screen_width = tb_width();
 	screen_height = tb_height();
-	present(screen_width, screen_height);
+	int row = 0;
+	int col = 0;
+	for(char each : buffer) {
+	    tb_change_cell(col++, row, each, TB_WHITE, TB_BLACK);
+	    if(col >= screen_width) {
+		col = 0;
+		++row;
+	    }
+	    if(row >= screen_height) {
+		break;
+	    }
+	}
+	insert_x = insert_y = 0;
+	present(insert_x, insert_y);
     }
     ~TermboxApp() { tb_shutdown(); }
-};
-
-class Cell {
-    
 };
 
 static inline void present(int insert_x, int insert_y)
@@ -39,17 +50,18 @@ static inline void present(int insert_x, int insert_y)
 }
 
 int main()
-{
+{   
     TermboxApp tb;
     tb_event event{};
     bool running = true;
+    std::list<char> buffer;
     present(tb.insert_x, tb.insert_y);
     
     while(running && tb_peek_event(&event, 1) != -1) {
-	if(event.type != TB_EVENT_KEY) {
+	if(event.type == TB_EVENT_RESIZE) {
+	    tb.resize(buffer);
 	    continue;
-	} else if(event.type == TB_EVENT_RESIZE) {
-	    tb.resize();
+	} else if(event.type != TB_EVENT_KEY) {
 	    continue;
 	} else if(event.key == TB_KEY_CTRL_C) {
 	    running = false;
@@ -59,6 +71,7 @@ int main()
 		++tb.insert_y;
 		tb.insert_x = 0;
 	    }
+	    buffer.push_back(event.ch);
 	    present(tb.insert_x, tb.insert_y);
 	} else if(event.key == TB_KEY_BACKSPACE2) {
 	    if(tb.insert_y <= 0 && tb.insert_x <= 0) continue;
@@ -68,6 +81,8 @@ int main()
 	    } else {
 		tb_change_cell(--tb.insert_x, tb.insert_y, ' ', TB_WHITE, TB_BLACK);
 	    }
+	    buffer.pop_back();
+	    
 	    present(tb.insert_x, tb.insert_y);
 	}
     }
