@@ -17,8 +17,8 @@ public:
     {
 	auto status = tb_init();
 	if(status < 0) {
-	    std::clog << "Error: Termbox failed with code " << status << std::endl;
 	    tb_shutdown();
+	    std::clog << "Error: Termbox failed with code " << status << std::endl;
 	    exit(1);
 	}
 	screen_width = tb_width();
@@ -68,10 +68,9 @@ int main()
     std::list<char> buffer;
     present(tb.insert_x, tb.insert_y);
     
-    while(running && tb_peek_event(&event, 1) != -1) {
+    while(running && tb_poll_event(&event) != -1) {
 	if(event.type == TB_EVENT_RESIZE) {
 	    tb.resize(buffer);
-	    continue;
 	} else if(event.type != TB_EVENT_KEY) {
 	    continue;
 	} else if(event.key == TB_KEY_CTRL_C) {
@@ -84,25 +83,24 @@ int main()
 	    }
 	    buffer.push_back(event.ch);
 	    present(tb.insert_x, tb.insert_y);
-	} else if(event.key == TB_KEY_ENTER) {
-	    if(tb.insert_y + 1 < tb.screen_height) {
-		buffer.push_back('\n');
-		tb.line_ends.push_back({tb.insert_x, tb.insert_y});
-		tb.insert_x = 0;
-		present(tb.insert_x, ++tb.insert_y);
-	    }
-	} else if(event.key == TB_KEY_BACKSPACE2 || event.key == TB_KEY_BACKSPACE) {
-	    if(tb.insert_y <= 0 && tb.insert_x <= 0) continue;
+	} else if(event.key == TB_KEY_ENTER
+		  && tb.insert_y + 1 < tb.screen_height) {
+	    buffer.push_back('\n');
+	    tb.line_ends.push_back({tb.insert_x, tb.insert_y});
+	    tb.insert_x = 0;
+	    present(tb.insert_x, ++tb.insert_y);
+	} else if((event.key == TB_KEY_BACKSPACE2 || event.key == TB_KEY_BACKSPACE)
+		  && (tb.insert_y > 0 || tb.insert_x > 0)) {
 	    if(buffer.back() == '\n') {
-	        auto it = std::find_if(tb.line_ends.begin(), tb.line_ends.end(),
-				       [&tb](const auto &end) {
-					   return end[1] == tb.insert_y-1;
-				       });
-		assert(it != tb.line_ends.end());
-		auto[col, row] = *it;
+	        auto prior = std::find_if(tb.line_ends.begin(), tb.line_ends.end(),
+					  [&tb](const auto &end) {
+					      return end[1] == tb.insert_y-1;
+					  });
+		assert(prior != tb.line_ends.end());
+		auto[col, row] = *prior;
 		tb.insert_x = col;
 		tb.insert_y = row;
-		tb.line_ends.erase(it);
+		tb.line_ends.erase(prior);
 	    } else if(tb.insert_x == 0) {
 		tb.insert_x = tb.screen_width - 1;
 		tb_change_cell(tb.insert_x, --tb.insert_y, ' ', TB_DEFAULT, TB_DEFAULT);
