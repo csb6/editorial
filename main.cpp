@@ -75,7 +75,8 @@ int main()
 	    continue;
 	} else if(event.key == TB_KEY_CTRL_C) {
 	    running = false;
-	} else if(event.ch >= '!' || event.key == TB_KEY_SPACE) {
+	} else if((event.ch >= '!' || event.key == TB_KEY_SPACE)
+		  && (tb.insert_x < tb.screen_width-1 || tb.insert_y < tb.screen_height-1)) {
 	    tb_change_cell(tb.insert_x++, tb.insert_y, event.ch, TB_DEFAULT, TB_DEFAULT);
 	    if(tb.insert_x >= tb.screen_width) {
 		++tb.insert_y;
@@ -110,6 +111,8 @@ int main()
 
 	    buffer.pop_back();
 	    present(tb.insert_x, tb.insert_y);
+	} else if(event.key == TB_KEY_ARROW_LEFT && tb.insert_x > 0) {
+	    present(--tb.insert_x, tb.insert_y);
 	}
     }
 
