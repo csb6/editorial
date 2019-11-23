@@ -66,32 +66,46 @@ int main()
     tb_event event{};
     bool running = true;
     std::list<char> buffer;
+    auto insert{buffer.end()};
     present(tb.insert_x, tb.insert_y);
     
     while(running && tb_poll_event(&event) != -1) {
 	if(event.type == TB_EVENT_RESIZE) {
+	    // User resizes terminal window
 	    tb.resize(buffer);
 	} else if(event.type != TB_EVENT_KEY) {
 	    continue;
 	} else if(event.key == TB_KEY_CTRL_C) {
+	    // User would like to quit
 	    running = false;
 	} else if((event.ch >= '!' || event.key == TB_KEY_SPACE)
 		  && (tb.insert_x < tb.screen_width-1 || tb.insert_y < tb.screen_height-1)) {
+	    // User typed a character into the buffer
+	    auto *curr = tb_cell_buffer() + tb.screen_width * tb.insert_y + tb.insert_x;
+	    if(curr->ch != ' ') {
+		std::move(curr, curr+buffer.size()
+			  - (tb.screen_width * tb.insert_y + tb.insert_x),
+			  curr+1);
+	    }
 	    tb_change_cell(tb.insert_x++, tb.insert_y, event.ch, TB_DEFAULT, TB_DEFAULT);
 	    if(tb.insert_x >= tb.screen_width) {
 		++tb.insert_y;
 		tb.insert_x = 0;
 	    }
-	    buffer.push_back(event.ch);
+	    buffer.insert(insert, event.ch);
+	    assert(*std::prev(insert) == (char)event.ch);
 	    present(tb.insert_x, tb.insert_y);
 	} else if(event.key == TB_KEY_ENTER
 		  && tb.insert_y + 1 < tb.screen_height) {
-	    buffer.push_back('\n');
+	    // User pressed Enter key to add a newline
+	    buffer.insert(insert, '\n');
+	    assert(*std::prev(insert) == '\n');
 	    tb.line_ends.push_back({tb.insert_x, tb.insert_y});
 	    tb.insert_x = 0;
 	    present(tb.insert_x, ++tb.insert_y);
 	} else if((event.key == TB_KEY_BACKSPACE2 || event.key == TB_KEY_BACKSPACE)
 		  && (tb.insert_y > 0 || tb.insert_x > 0)) {
+	    // User backspaced a character
 	    if(buffer.back() == '\n') {
 	        auto prior = std::find_if(tb.line_ends.begin(), tb.line_ends.end(),
 					  [&tb](const auto &end) {
@@ -109,10 +123,16 @@ int main()
 		tb_change_cell(--tb.insert_x, tb.insert_y, ' ', TB_DEFAULT, TB_DEFAULT);
 	    }
 
-	    buffer.pop_back();
+	    --insert;
+	    insert = buffer.erase(insert);
 	    present(tb.insert_x, tb.insert_y);
 	} else if(event.key == TB_KEY_ARROW_LEFT && tb.insert_x > 0) {
+	    // User wants to move back one character
+	    --insert;
 	    present(--tb.insert_x, tb.insert_y);
+	} else if(event.key == TB_KEY_ARROW_RIGHT && tb.insert_x < tb.screen_width) {
+	    ++insert;
+	    present(++tb.insert_x, tb.insert_y);
 	}
     }
 
