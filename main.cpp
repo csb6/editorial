@@ -4,7 +4,11 @@
 #include <algorithm>
 #include <array>
 
-static inline void present(int insert_x, int insert_y);
+static inline void present(int insert_x, int insert_y)
+{
+    tb_set_cursor(insert_x, insert_y);
+    tb_present();
+}
 
 class TermboxApp {
 public:
@@ -51,14 +55,19 @@ public:
 	insert_y = (row >= screen_height) ? screen_height-1 : row;
 	present(insert_x, insert_y);
     }
+    // Shift over all characters onscreen by one char to make an empty cell if
+    // that cell is currently non-empty
+    void maybe_shift_right(unsigned int buffer_size)
+    {
+	auto *curr = tb_cell_buffer() + screen_width * insert_y + insert_x;
+	if(curr->ch != ' ') {
+	    std::move(curr, curr+buffer_size
+		      - (screen_width * insert_y + insert_x),
+		      curr+1);
+	}
+    }
     ~TermboxApp() { tb_shutdown(); }
 };
-
-static inline void present(int insert_x, int insert_y)
-{
-    tb_set_cursor(insert_x, insert_y);
-    tb_present();
-}
 
 int main()
 {   
@@ -81,12 +90,7 @@ int main()
 	} else if((event.ch >= '!' || event.key == TB_KEY_SPACE)
 		  && (tb.insert_x < tb.screen_width-1 || tb.insert_y < tb.screen_height-1)) {
 	    // User typed a character into the buffer
-	    auto *curr = tb_cell_buffer() + tb.screen_width * tb.insert_y + tb.insert_x;
-	    if(curr->ch != ' ') {
-		std::move(curr, curr+buffer.size()
-			  - (tb.screen_width * tb.insert_y + tb.insert_x),
-			  curr+1);
-	    }
+	    tb.maybe_shift_right(buffer.size());
 	    tb_change_cell(tb.insert_x++, tb.insert_y, event.ch, TB_DEFAULT, TB_DEFAULT);
 	    if(tb.insert_x >= tb.screen_width) {
 		++tb.insert_y;
@@ -130,7 +134,9 @@ int main()
 	    // User wants to move back one character
 	    --insert;
 	    present(--tb.insert_x, tb.insert_y);
-	} else if(event.key == TB_KEY_ARROW_RIGHT && tb.insert_x < tb.screen_width) {
+	} else if(event.key == TB_KEY_ARROW_RIGHT && tb.insert_x < tb.screen_width
+		  && insert != buffer.end()) {
+	    // User wants to move forward one character
 	    ++insert;
 	    present(++tb.insert_x, tb.insert_y);
 	}
