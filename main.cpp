@@ -55,29 +55,136 @@ public:
 	insert_y = (row >= screen_height) ? screen_height-1 : row;
 	present(insert_x, insert_y);
     }
-    // Shift over all characters onscreen by one char to make an empty cell if
-    // that cell is currently non-empty
-    void maybe_shift_right(unsigned int buffer_size)
+
+    int size() const
     {
-	auto *curr = tb_cell_buffer() + screen_width * insert_y + insert_x;
-	if(curr->ch != ' ') {
-	    std::move(curr, curr+buffer_size
-		      - (screen_width * insert_y + insert_x),
-		      curr+1);
-	}
+	return screen_width * screen_height;
     }
+
+    void shift_right_at_insert(unsigned int file_size)
+    {
+	auto *insert = tb_cell_buffer() + (screen_width * insert_y) + insert_x;
+	std::move(insert, insert+file_size
+		  - (screen_width * insert_y + insert_x),
+		  insert+1);
+	tb_change_cell(insert_x, insert_y, ' ', TB_DEFAULT, TB_DEFAULT);
+    }
+
+    void return_at_insert(unsigned int file_size)
+    {
+	auto *insert = tb_cell_buffer() + (screen_width * insert_y) + insert_x;
+	std::move(insert, insert+file_size
+		  - (screen_width * insert_y + insert_x),
+		  insert+(screen_width-insert_x));
+	tb_change_cell(insert_x, insert_y, ' ', TB_DEFAULT, TB_DEFAULT);
+    }
+
     ~TermboxApp() { tb_shutdown(); }
 };
 
+class BufferIterator {
+private:
+    std::list<char> &m_buffer;
+    std::list<char>::iterator m_buff_iter;
+    TermboxApp &m_tb;
+    unsigned int m_screen_position = 0;
+public:
+    explicit BufferIterator(std::list<char> &buffer, TermboxApp &tb)
+	: m_buffer{buffer}, m_buff_iter{buffer.begin()}, m_tb(tb)
+    {
+	++m_buff_iter;
+    }
+
+    auto& operator*()
+    {
+	return m_buff_iter;
+    }
+
+    bool at_end() const
+    {
+	return m_buff_iter == m_buffer.end();
+    }
+
+    auto screen_position() const
+    {
+	return m_screen_position;
+    }
+
+    bool operator++()
+    {
+	if(m_buff_iter == m_buffer.end() || m_tb.insert_y >= m_tb.screen_height) {
+	    // If at end of screen, can't go right any more
+	    return false;
+	} else if(m_tb.insert_x >= m_tb.screen_width-1
+		  && m_tb.insert_y < m_tb.screen_height-1) {
+	    // If at the end of a line, bump cursor down to next line
+	    ++m_tb.insert_y;
+	    m_tb.insert_x = 0;
+	} else {
+	    // Normal case: just move cursor right one cell
+	    ++m_tb.insert_x;
+	}
+	++m_buff_iter;
+	++m_screen_position;
+	return true;
+    }
+
+    bool operator--()
+    {
+	if(m_buff_iter == m_buffer.begin()
+	   || (m_tb.insert_x <= 0 && m_tb.insert_y <= 0)) {
+	    return false;
+	} else if(m_tb.insert_x <= 0 && m_tb.insert_y > 0) {
+	    auto prior = std::find_if(m_tb.line_ends.begin(), m_tb.line_ends.end(),
+				      [this](const auto &end) {
+					  return end[1] == this->m_tb.insert_y-1;
+				      });
+	    assert(prior != m_tb.line_ends.end());
+	    auto[col, row] = *prior;
+	    m_tb.insert_x = col;
+	    m_tb.insert_y = row;
+	    m_tb.line_ends.erase(prior);
+	} else {
+	    --m_tb.insert_x;
+	}
+	--m_buff_iter;
+	--m_screen_position;
+	return true;
+    }
+};
+
+bool can_return(const std::list<char> &buffer, const TermboxApp &screen)
+{
+    return (screen.insert_y != screen.screen_height-1)
+	&& screen.size() - buffer.size() > 0;
+}
+
+bool can_insert(const std::list<char> &buffer, const TermboxApp &screen)
+{
+    return screen.size() - buffer.size() > 0;
+}
+
+void insert(TermboxApp &screen, std::list<char> &buffer,
+	    BufferIterator &inserter, char letter)
+{
+    buffer.insert(*inserter, letter);
+    if(!inserter.at_end()) {
+	screen.shift_right_at_insert(buffer.size());
+    }
+    tb_change_cell(screen.insert_x, screen.insert_y, letter, TB_DEFAULT, TB_DEFAULT);
+    --*inserter;
+    ++inserter;
+}
+
 int main()
-{   
+{
     TermboxApp tb;
     tb_event event{};
     bool running = true;
     std::list<char> buffer;
-    auto insert{buffer.end()};
+    BufferIterator inserter(buffer, tb);
     present(tb.insert_x, tb.insert_y);
-    
+
     while(running && tb_poll_event(&event) != -1) {
 	if(event.type == TB_EVENT_RESIZE) {
 	    // User resizes terminal window
@@ -88,57 +195,25 @@ int main()
 	    // User would like to quit
 	    running = false;
 	} else if((event.ch >= '!' || event.key == TB_KEY_SPACE)
-		  && (tb.insert_x < tb.screen_width-1 || tb.insert_y < tb.screen_height-1)) {
+		  && can_insert(buffer, tb)) {
 	    // User typed a character into the buffer
-	    tb.maybe_shift_right(buffer.size());
-	    tb_change_cell(tb.insert_x++, tb.insert_y, event.ch, TB_DEFAULT, TB_DEFAULT);
-	    if(tb.insert_x >= tb.screen_width) {
-		++tb.insert_y;
-		tb.insert_x = 0;
-	    }
-	    buffer.insert(insert, event.ch);
-	    assert(*std::prev(insert) == (char)event.ch);
+	    insert(tb, buffer, inserter, event.ch);
 	    present(tb.insert_x, tb.insert_y);
-	} else if(event.key == TB_KEY_ENTER
-		  && tb.insert_y + 1 < tb.screen_height) {
+	} else if(event.key == TB_KEY_ENTER && can_return(buffer, tb)) {
 	    // User pressed Enter key to add a newline
-	    buffer.insert(insert, '\n');
-	    assert(*std::prev(insert) == '\n');
-	    tb.line_ends.push_back({tb.insert_x, tb.insert_y});
-	    tb.insert_x = 0;
-	    present(tb.insert_x, ++tb.insert_y);
-	} else if((event.key == TB_KEY_BACKSPACE2 || event.key == TB_KEY_BACKSPACE)
-		  && (tb.insert_y > 0 || tb.insert_x > 0)) {
-	    // User backspaced a character
-	    if(buffer.back() == '\n') {
-	        auto prior = std::find_if(tb.line_ends.begin(), tb.line_ends.end(),
-					  [&tb](const auto &end) {
-					      return end[1] == tb.insert_y-1;
-					  });
-		assert(prior != tb.line_ends.end());
-		auto[col, row] = *prior;
-		tb.insert_x = col;
-		tb.insert_y = row;
-		tb.line_ends.erase(prior);
-	    } else if(tb.insert_x == 0) {
-		tb.insert_x = tb.screen_width - 1;
-		tb_change_cell(tb.insert_x, --tb.insert_y, ' ', TB_DEFAULT, TB_DEFAULT);
-	    } else {
-		tb_change_cell(--tb.insert_x, tb.insert_y, ' ', TB_DEFAULT, TB_DEFAULT);
-	    }
-
-	    --insert;
-	    insert = buffer.erase(insert);
+	    insert(tb, buffer, inserter, '\n');
 	    present(tb.insert_x, tb.insert_y);
-	} else if(event.key == TB_KEY_ARROW_LEFT && tb.insert_x > 0) {
+	} else if(event.key == TB_KEY_BACKSPACE2 || event.key == TB_KEY_BACKSPACE) {
+	      // User backspaced a character
+
+	} else if(event.key == TB_KEY_ARROW_LEFT) {
 	    // User wants to move back one character
-	    --insert;
-	    present(--tb.insert_x, tb.insert_y);
-	} else if(event.key == TB_KEY_ARROW_RIGHT && tb.insert_x < tb.screen_width
-		  && insert != buffer.end()) {
+	    --inserter;
+	    present(tb.insert_x, tb.insert_y);
+	} else if(event.key == TB_KEY_ARROW_RIGHT) {
 	    // User wants to move forward one character
-	    ++insert;
-	    present(++tb.insert_x, tb.insert_y);
+	    ++inserter;
+	    present(tb.insert_x, tb.insert_y);
 	}
     }
 
