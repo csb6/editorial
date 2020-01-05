@@ -103,7 +103,8 @@ void draw(const std::list<char> &buffer)
 int main()
 {
     Termbox tb;
-    std::ifstream file("test.txt");
+    const char *filename = "test.txt";
+    std::ifstream file(filename);
     std::list<char> buffer;
     while(file) {
 	buffer.push_back(file.get());
@@ -123,6 +124,14 @@ int main()
 	case TB_KEY_CTRL_C:
 	    // Exit program
 	    return 0;
+	case TB_KEY_CTRL_S: {
+	    // Save buffer
+	    std::ofstream output_file(filename);
+	    for(char each : buffer) {
+		output_file.put(each);
+	    }
+	    break;
+	}
 	case TB_KEY_ENTER:
 	    buffer.insert(*inserter, '\n');
 	    cursor.next_line();
@@ -148,6 +157,13 @@ int main()
 	case TB_KEY_ARROW_LEFT:
 	    --cursor;
 	    --inserter;
+	    tb_present();
+	    break;
+	case TB_KEY_SPACE:
+	    buffer.insert(*inserter, ' ');
+	    ++cursor;
+	    tb_clear();
+	    draw(buffer);
 	    tb_present();
 	    break;
 	default: {
