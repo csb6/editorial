@@ -1,219 +1,162 @@
 #include <iostream>
-#include "termbox.h"
+#include <fstream>
 #include <list>
 #include <algorithm>
-#include <array>
+#include "termbox.h"
 
-static inline void present(int insert_x, int insert_y)
-{
-    tb_set_cursor(insert_x, insert_y);
-    tb_present();
-}
-
-class TermboxApp {
+class Termbox {
 public:
-    int screen_width, screen_height;
-    int insert_x = 0;
-    int insert_y = 0;
-    // [column, row] (in the screen buffer)
-    std::list<std::array<int,2>> line_ends;
-    TermboxApp()
+    Termbox()
     {
-	auto status = tb_init();
+	int status = tb_init();
 	if(status < 0) {
-	    tb_shutdown();
-	    std::clog << "Error: Termbox failed with code " << status << std::endl;
-	    exit(1);
+	    throw std::runtime_error("Termbox could not start-up properly");
 	}
-	screen_width = tb_width();
-	screen_height = tb_height();
     }
-
-    // Re-layout/draw the screen to fit the window's current size
-    void resize(const std::list<char> &buffer)
-    {
-	tb_clear();
-	screen_width = tb_width();
-	screen_height = tb_height();
-	int row = 0;
-	int col = 0;
-	for(char each : buffer) {
-	    if(col >= screen_width || each == '\n') {
-		col = 0;
-		++row;
-	    }
-	    if(each == '\n') {
-		line_ends.push_back({col,row});
-		continue;
-	    }
-	    tb_change_cell(col++, row, each, TB_DEFAULT, TB_DEFAULT);
-	    if(row >= screen_height) {
-		break;
-	    }
-	}
-	insert_x = col;
-	insert_y = (row >= screen_height) ? screen_height-1 : row;
-	present(insert_x, insert_y);
-    }
-
-    int size() const
-    {
-	return screen_width * screen_height;
-    }
-
-    void shift_right_at_insert(unsigned int file_size)
-    {
-	auto *insert = tb_cell_buffer() + (screen_width * insert_y) + insert_x;
-	std::move(insert, insert+file_size
-		  - (screen_width * insert_y + insert_x),
-		  insert+1);
-	tb_change_cell(insert_x, insert_y, ' ', TB_DEFAULT, TB_DEFAULT);
-    }
-
-    void return_at_insert(unsigned int file_size)
-    {
-	auto *insert = tb_cell_buffer() + (screen_width * insert_y) + insert_x;
-	std::move(insert, insert+file_size
-		  - (screen_width * insert_y + insert_x),
-		  insert+(screen_width-insert_x));
-	tb_change_cell(insert_x, insert_y, ' ', TB_DEFAULT, TB_DEFAULT);
-    }
-
-    ~TermboxApp() { tb_shutdown(); }
+    ~Termbox() { tb_shutdown(); }
 };
 
 class BufferIterator {
 private:
     std::list<char> &m_buffer;
-    std::list<char>::iterator m_buff_iter;
-    TermboxApp &m_tb;
-    unsigned int m_screen_position = 0;
+    std::list<char>::iterator m_iter;
 public:
-    explicit BufferIterator(std::list<char> &buffer, TermboxApp &tb)
-	: m_buffer{buffer}, m_buff_iter{buffer.begin()}, m_tb(tb)
+    BufferIterator(std::list<char> &buffer)
+	: m_buffer(buffer), m_iter(m_buffer.begin())
+    {}
+    auto& operator++()
     {
-	++m_buff_iter;
+	if(m_iter != std::prev(m_buffer.end()))
+	    ++m_iter;
+	return m_iter;
     }
-
-    auto& operator*()
+    auto& operator--()
     {
-	return m_buff_iter;
+	if(m_iter != m_buffer.begin())
+	    --m_iter;
+	return m_iter;
     }
+    auto& operator*() { return m_iter; }
+};
 
-    bool at_end() const
+class CursorIterator {
+private:
+    int x = 0;
+    int y = 0;
+public:
+    CursorIterator() { tb_set_cursor(x, y); }
+    void operator++()
     {
-	return m_buff_iter == m_buffer.end();
-    }
-
-    auto screen_position() const
-    {
-	return m_screen_position;
-    }
-
-    bool operator++()
-    {
-	if(m_buff_iter == m_buffer.end() || m_tb.insert_y >= m_tb.screen_height) {
-	    // If at end of screen, can't go right any more
-	    return false;
-	} else if(m_tb.insert_x >= m_tb.screen_width-1
-		  && m_tb.insert_y < m_tb.screen_height-1) {
-	    // If at the end of a line, bump cursor down to next line
-	    ++m_tb.insert_y;
-	    m_tb.insert_x = 0;
+	if(x < tb_width()-1) {
+	    ++x;
+	    tb_set_cursor(x, y);
 	} else {
-	    // Normal case: just move cursor right one cell
-	    ++m_tb.insert_x;
+	    next_line();
 	}
-	++m_buff_iter;
-	++m_screen_position;
-	return true;
     }
-
-    bool operator--()
+    void operator--()
     {
-	if(m_buff_iter == m_buffer.begin()
-	   || (m_tb.insert_x <= 0 && m_tb.insert_y <= 0)) {
-	    return false;
-	} else if(m_tb.insert_x <= 0 && m_tb.insert_y > 0) {
-	    auto prior = std::find_if(m_tb.line_ends.begin(), m_tb.line_ends.end(),
-				      [this](const auto &end) {
-					  return end[1] == this->m_tb.insert_y-1;
-				      });
-	    assert(prior != m_tb.line_ends.end());
-	    auto[col, row] = *prior;
-	    m_tb.insert_x = col;
-	    m_tb.insert_y = row;
-	    m_tb.line_ends.erase(prior);
+	if(x > 0) {
+	    --x;
+	    tb_set_cursor(x, y);
 	} else {
-	    --m_tb.insert_x;
+	    prev_line();
 	}
-	--m_buff_iter;
-	--m_screen_position;
-	return true;
+    }
+    void next_line()
+    {
+	if(y < tb_height()-1) {
+	    x = 0;
+	    ++y;
+	    tb_set_cursor(x, y);
+	}
+    }
+    void prev_line()
+    {
+	if(y > 0) {
+	    x = tb_width();
+	    --y;
+	    tb_set_cursor(x, y);
+	}
     }
 };
 
-bool can_return(const std::list<char> &buffer, const TermboxApp &screen)
+void draw(const std::list<char> &buffer)
 {
-    return (screen.insert_y != screen.screen_height-1)
-	&& screen.size() - buffer.size() > 0;
-}
-
-bool can_insert(const std::list<char> &buffer, const TermboxApp &screen)
-{
-    return screen.size() - buffer.size() > 0;
-}
-
-void insert(TermboxApp &screen, std::list<char> &buffer,
-	    BufferIterator &inserter, char letter)
-{
-    buffer.insert(*inserter, letter);
-    if(!inserter.at_end()) {
-	screen.shift_right_at_insert(buffer.size());
+    auto it = buffer.begin();
+    int width = tb_width();
+    int height = tb_height();
+    for(int row = 0; row < height; ++row) {
+	for(int col = 0; col < width; ++col) {
+	    if(it == buffer.end())
+		return;
+	    if(*it == '\n') {
+		++it;
+		break;
+	    }
+	    tb_change_cell(col, row, *it, TB_DEFAULT, TB_DEFAULT);
+	    ++it;
+	}
     }
-    tb_change_cell(screen.insert_x, screen.insert_y, letter, TB_DEFAULT, TB_DEFAULT);
-    --*inserter;
-    ++inserter;
 }
 
 int main()
 {
-    TermboxApp tb;
-    tb_event event{};
-    bool running = true;
+    Termbox tb;
+    std::ifstream file("test.txt");
     std::list<char> buffer;
-    BufferIterator inserter(buffer, tb);
-    present(tb.insert_x, tb.insert_y);
-
-    while(running && tb_poll_event(&event) != -1) {
-	if(event.type == TB_EVENT_RESIZE) {
-	    // User resizes terminal window
-	    tb.resize(buffer);
-	} else if(event.type != TB_EVENT_KEY) {
+    while(file) {
+	buffer.push_back(file.get());
+    }
+    if(buffer.size() >= 1 && buffer.back() == EOF)
+	buffer.pop_back();
+    draw(buffer);
+    BufferIterator inserter(buffer);
+    CursorIterator cursor;
+    tb_present();
+    tb_event curr_event;
+    while(tb_poll_event(&curr_event) != -1) {
+        if(curr_event.type != TB_EVENT_KEY)
 	    continue;
-	} else if(event.key == TB_KEY_CTRL_C) {
-	    // User would like to quit
-	    running = false;
-	} else if((event.ch >= '!' || event.key == TB_KEY_SPACE)
-		  && can_insert(buffer, tb)) {
-	    // User typed a character into the buffer
-	    insert(tb, buffer, inserter, event.ch);
-	    present(tb.insert_x, tb.insert_y);
-	} else if(event.key == TB_KEY_ENTER && can_return(buffer, tb)) {
-	    // User pressed Enter key to add a newline
-	    insert(tb, buffer, inserter, '\n');
-	    present(tb.insert_x, tb.insert_y);
-	} else if(event.key == TB_KEY_BACKSPACE2 || event.key == TB_KEY_BACKSPACE) {
-	      // User backspaced a character
 
-	} else if(event.key == TB_KEY_ARROW_LEFT) {
-	    // User wants to move back one character
-	    --inserter;
-	    present(tb.insert_x, tb.insert_y);
-	} else if(event.key == TB_KEY_ARROW_RIGHT) {
-	    // User wants to move forward one character
+	switch(curr_event.key) {
+	case TB_KEY_CTRL_C:
+	    // Exit program
+	    return 0;
+	case TB_KEY_ENTER:
+	    buffer.insert(*inserter, '\n');
+	    cursor.next_line();
+	    tb_clear();
+	    draw(buffer);
+	    tb_present();
+	    break;
+	case TB_KEY_BACKSPACE:
+	case TB_KEY_BACKSPACE2: {
+	    auto new_iter = buffer.erase(std::prev(*inserter));
+	    *inserter = new_iter;
+	    --cursor;
+	    tb_clear();
+	    draw(buffer);
+	    tb_present();
+	    break;
+	}
+	case TB_KEY_ARROW_RIGHT:
+	    ++cursor;
 	    ++inserter;
-	    present(tb.insert_x, tb.insert_y);
+	    tb_present();
+	    break;
+	case TB_KEY_ARROW_LEFT:
+	    --cursor;
+	    --inserter;
+	    tb_present();
+	    break;
+	default: {
+	    buffer.insert(*inserter, curr_event.ch);
+	    ++cursor;
+	    tb_clear();
+	    draw(buffer);
+	    tb_present();
+	}
 	}
     }
 
