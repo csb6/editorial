@@ -1,6 +1,6 @@
-Hello there! Hopefully this saves correctly!
+Hello there! This is a text editor. Hopefully this correctly saves!
 
-This is a test file.
+This is a test file. It contains some text
 
 
-It contains some text.
+It contains some additional text.

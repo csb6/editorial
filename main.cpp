@@ -72,16 +72,29 @@ int main()
 	    return 0;
 	case TB_KEY_CTRL_S: {
 	    // Save buffer
-	    /*std::ofstream output_file(filename);
-	    for(char each : buffer) {
-		output_file.put(each);
-		}*/
+	    std::ofstream output_file(filename);
+	    for(const auto &row_buf : buffer) {
+		for(char letter : row_buf) {
+		    output_file.put(letter);
+		}
+		if(row_buf != buffer.back())
+		    output_file.put('\n');
+	    }
 	    break;
 	}
 	case TB_KEY_ENTER:
-	    buffer.insert(curr_row, std::list<char>{});
-	    
-	    inserter = curr_row->begin();
+	    // TODO: properly append contents of split row to new row
+	    if(inserter == curr_row->begin() && curr_row->size() >= 1) {
+		curr_row = buffer.insert(curr_row, std::list<char>{});
+		inserter = curr_row->begin();
+		cursor_x = 0;
+	    } else {
+		curr_row = buffer.insert(std::next(curr_row), std::list<char>{});
+		inserter = curr_row->begin();
+		cursor_x = 0;
+		++cursor_y;
+	    }
+	    tb_set_cursor(cursor_x, cursor_y);
 	    tb_clear();
 	    draw(buffer);
 	    tb_present();
@@ -140,6 +153,38 @@ int main()
 	    tb_set_cursor(cursor_x, cursor_y);
 	    tb_present();
 	    break;
+	case TB_KEY_ARROW_UP: {
+	    if(curr_row == buffer.begin())
+		break;
+	    auto x_pos = std::distance(curr_row->begin(), inserter);
+	    --curr_row;
+	    if(curr_row->size() >= 1)
+		x_pos = std::min(x_pos, static_cast<long>(curr_row->size())-1);
+	    else
+		x_pos = 0;
+	    inserter = std::next(curr_row->begin(), x_pos);
+	    cursor_x = x_pos;
+	    --cursor_y;
+	    tb_set_cursor(cursor_x, cursor_y);
+	    tb_present();
+	    break;
+	}
+	case TB_KEY_ARROW_DOWN: {
+	    if(std::next(curr_row) == buffer.end())
+		break;
+	    auto x_pos = std::distance(curr_row->begin(), inserter);
+	    ++curr_row;
+	    if(curr_row->size() >= 1)
+		x_pos = std::min(x_pos, static_cast<long>(curr_row->size())-1);
+	    else
+		x_pos = 0;
+	    inserter = std::next(curr_row->begin(), x_pos);
+	    cursor_x = x_pos;
+	    ++cursor_y;
+	    tb_set_cursor(cursor_x, cursor_y);
+	    tb_present();
+	    break;
+	}
 	case TB_KEY_SPACE:
 	    curr_row->insert(inserter, ' ');
 	    ++cursor_x;
