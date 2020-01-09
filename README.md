@@ -1,6 +1,6 @@
 # Editorial
 
-A text editor for your terminal.
+A text editor for your terminal, written in C++17.
 
 ## Key Bindings
 
@@ -13,6 +13,8 @@ A text editor for your terminal.
 **Up and Down Arrows** : Move one line up/down
 
 ## Installation
+
+The editor should run in any terminal that supports terminfo.
 
 After cloning the repository and its submodule (termbox), run `build-full.sh`.
 This will build `termbox`, the C library used to draw to the terminal screen.

@@ -5,6 +5,7 @@
 #include <string_view>
 #include "termbox.h"
 
+void highlight(int start = 0);
 constexpr std::size_t TabSize = 4; // in spaces
 
 /**Manages Termbox terminal-drawing library, which treats screen as grid of
@@ -38,6 +39,7 @@ void draw(const std::list<std::list<char>> &buffer)
 	}
 	++row;
     }
+    highlight();
 }
 
 /**Writes the given text to the screen with optional coloring; text starts
@@ -61,6 +63,7 @@ void write(int col, int row, std::string_view text, uint16_t fg = TB_DEFAULT,
 	++col;
     }
 }
+
 
 /**Creates a 2D grid of characters representing a given text file*/
 std::list<std::list<char>> load(const char *filename)
@@ -99,6 +102,7 @@ void save(const std::list<std::list<char>> &buffer, const char *filename)
 	    output_file.put('\n');
     }
 }
+
 
 int main(int argc, char **argv)
 {
@@ -186,7 +190,7 @@ int main(int argc, char **argv)
 		--cursor_y;
 		inserter = curr_row->end();
 		cursor_x = curr_row->size();
-	    } else if(curr_row != buffer.begin()){
+	    } else if(curr_row != buffer.begin()) {
 		// If deleting newline in front of line with text, move text of
 		// that line to the end of the prior line
 		auto prior_row = std::prev(curr_row);
