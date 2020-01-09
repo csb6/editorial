@@ -3,6 +3,7 @@ cd termbox
 ./waf configure
 ./waf
 ./waf install --targets=termbox_static
+cp src/termbox.h ..
 cp build/src/libtermbox.a ..
 echo "Cleaning up..."
 rm -r build

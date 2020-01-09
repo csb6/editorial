@@ -3,3 +3,4 @@
 termbox/*
 libtermbox.a
 editor-min
+termbox.h
