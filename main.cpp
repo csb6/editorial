@@ -5,6 +5,8 @@
 #include <string_view>
 #include "termbox.h"
 
+constexpr std::size_t TabSize = 4; // in spaces
+
 /**Manages Termbox terminal-drawing library, which treats screen as grid of
    cells, with each cell holding a single character*/
 class Termbox {
@@ -51,7 +53,8 @@ void write(int col, int row, std::string_view text, uint16_t fg = TB_DEFAULT,
 
     for(char letter : text) {
 	if(col >= width) {
-	    ++row;
+	    if(++row >= height)
+		break;
 	    col = 0;
 	}
 	tb_change_cell(col, row, letter, fg, bg);
@@ -114,7 +117,7 @@ int main(int argc, char **argv)
     tb_present();
     // Flag to redraw screen on next tick
     bool needs_redraw = false;
-    tb_event curr_event;
+    tb_event curr_event{};
     while(tb_poll_event(&curr_event) != -1) {
 	if(curr_event.type == TB_EVENT_RESIZE) {
 	    tb_clear();
@@ -260,6 +263,14 @@ int main(int argc, char **argv)
 	case TB_KEY_SPACE:
 	    curr_row->insert(inserter, ' ');
 	    ++cursor_x;
+	    tb_set_cursor(cursor_x, cursor_y);
+	    tb_clear();
+	    draw(buffer);
+	    tb_present();
+	    break;
+	case TB_KEY_TAB:
+	    curr_row->insert(inserter, TabSize, ' ');
+	    cursor_x += TabSize;
 	    tb_set_cursor(cursor_x, cursor_y);
 	    tb_clear();
 	    draw(buffer);
