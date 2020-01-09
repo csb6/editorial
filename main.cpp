@@ -16,16 +16,18 @@ public:
     ~Termbox() { tb_shutdown(); }
 };
 
+
 void draw(const std::list<std::list<char>> &buffer)
 {
-    int screen_size = tb_width() * tb_height();
     int col = 0;
     int row = 0;
+    const int width = tb_width();
+    const int height = tb_height();
     for(const auto &row_buf : buffer) {
+	if(row >= height) break;
 	col = 0;
 	for(char letter : row_buf) {
-	    if(col * row >= screen_size)
-		return;
+	    if(col >= width) break;
 	    tb_change_cell(col, row, letter, TB_DEFAULT, TB_DEFAULT);
 	    ++col;
 	}
@@ -33,11 +35,8 @@ void draw(const std::list<std::list<char>> &buffer)
     }
 }
 
-
-int main()
+std::list<std::list<char>> load(const char *filename)
 {
-    Termbox tb;
-    const char *filename = "test.txt";
     std::ifstream file(filename);
     std::list<std::list<char>> buffer;
     buffer.push_back(std::list<char>{});
@@ -51,19 +50,48 @@ int main()
 	    curr_row->push_back(curr);
 	}
     }
+
     if(buffer.size() >= 1 && curr_row->size() >= 1
        && curr_row->back() == EOF)
         curr_row->pop_back();
-    draw(buffer);
-    curr_row = buffer.begin();
+    return buffer;
+}
+
+void save(const std::list<std::list<char>> &buffer, const char *filename)
+{
+    // Save buffer to file
+    std::ofstream output_file(filename);
+    for(const auto &row_buf : buffer) {
+	for(char letter : row_buf) {
+	    output_file.put(letter);
+	}
+	if(row_buf != buffer.back())
+	    output_file.put('\n');
+    }
+}
+
+
+int main()
+{
+    Termbox tb;
+    const char *filename = "test.txt";
+    std::list<std::list<char>> buffer{load(filename)};
+
+    auto curr_row = buffer.begin();
     auto inserter = curr_row->begin();
     int cursor_x = 0;
     int cursor_y = 0;
     tb_set_cursor(cursor_x, cursor_y);
+    draw(buffer);
     tb_present();
     tb_event curr_event;
     while(tb_poll_event(&curr_event) != -1) {
-        if(curr_event.type != TB_EVENT_KEY)
+	if(curr_event.type == TB_EVENT_RESIZE) {
+	    tb_clear();
+	    draw(buffer);
+	    tb_present();
+	    continue;
+        } else if(curr_event.type != TB_EVENT_KEY)
 	    continue;
 
 	switch(curr_event.key) {
@@ -71,24 +99,20 @@ int main()
 	    // Exit program
 	    return 0;
 	case TB_KEY_CTRL_S: {
-	    // Save buffer
-	    std::ofstream output_file(filename);
-	    for(const auto &row_buf : buffer) {
-		for(char letter : row_buf) {
-		    output_file.put(letter);
-		}
-		if(row_buf != buffer.back())
-		    output_file.put('\n');
-	    }
+	    // Save to disk
+	    save(buffer, filename);
 	    break;
 	}
 	case TB_KEY_ENTER:
 	    // TODO: properly append contents of split row to new row
 	    if(inserter == curr_row->begin() && curr_row->size() >= 1) {
+		// If at beginning of line with at least some text,
+		// newline goes before the cursor's row
 		curr_row = buffer.insert(curr_row, std::list<char>{});
 		inserter = curr_row->begin();
 		cursor_x = 0;
-	    } else {
+	    } else if(inserter == curr_row->end()) {
+		// Newline goes after the cursor's row
 		curr_row = buffer.insert(std::next(curr_row), std::list<char>{});
 		inserter = curr_row->begin();
 		cursor_x = 0;
@@ -101,13 +125,29 @@ int main()
 	    break;
 	case TB_KEY_BACKSPACE:
 	case TB_KEY_BACKSPACE2: {
+	    // TODO: properly append contents of erased row to prior row
 	    if(inserter != curr_row->begin()) {
+		// If line isn't empty, just remove the character
 		inserter = curr_row->erase(std::prev(inserter));
 		--cursor_x;
-	    } else if(curr_row != buffer.begin()) {
-		// TODO: properly append contents of erased row to prior row
-		curr_row = buffer.erase(curr_row);
+	    } else if(curr_row->empty() && curr_row != buffer.begin()) {
+		// If line is empty and not the first row, delete that line
+		curr_row = std::prev(buffer.erase(curr_row));
 		--cursor_y;
+		if(curr_row->size() >= 1) {
+		    inserter = std::prev(curr_row->end());
+		    cursor_x = curr_row->size() - 1;
+		} else {
+		    inserter = curr_row->begin();
+		    cursor_x = 0;
+		}
+	    } else if(curr_row != buffer.begin()){
+		auto prior_row = std::prev(curr_row);
+		std::copy(curr_row->begin(), curr_row->end(),
+			  std::back_inserter(*prior_row));
+		--cursor_y;
+		buffer.erase(curr_row);
+		curr_row = prior_row;
 		if(curr_row->size() >= 1) {
 		    inserter = std::prev(curr_row->end());
 		    cursor_x = curr_row->size() - 1;
@@ -124,9 +164,11 @@ int main()
 	}
 	case TB_KEY_ARROW_RIGHT:
 	    if(inserter != curr_row->end()) {
+		// Go right as long as there is text left to go over
 		++inserter;
 		++cursor_x;
 	    } else if(std::next(curr_row) != buffer.end()) {
+		// Can't go right anymore at buffer end
 		++curr_row;
 		inserter = curr_row->begin();
 		++cursor_y;
@@ -137,9 +179,11 @@ int main()
 	    break;
 	case TB_KEY_ARROW_LEFT:
 	    if(inserter != curr_row->begin()) {
+		// Go left as long as there is text left to go over
 		--inserter;
 		--cursor_x;
 	    } else if(curr_row != buffer.begin()) {
+		// Can't go left anymore at buffer start
 		--curr_row;
 		--cursor_y;
 		if(curr_row->size() >= 1) {
@@ -156,10 +200,10 @@ int main()
 	case TB_KEY_ARROW_UP: {
 	    if(curr_row == buffer.begin())
 		break;
-	    auto x_pos = std::distance(curr_row->begin(), inserter);
+	    unsigned long x_pos = std::distance(curr_row->begin(), inserter);
 	    --curr_row;
 	    if(curr_row->size() >= 1)
-		x_pos = std::min(x_pos, static_cast<long>(curr_row->size())-1);
+		x_pos = std::min(x_pos, curr_row->size()-1);
 	    else
 		x_pos = 0;
 	    inserter = std::next(curr_row->begin(), x_pos);
@@ -172,10 +216,10 @@ int main()
 	case TB_KEY_ARROW_DOWN: {
 	    if(std::next(curr_row) == buffer.end())
 		break;
-	    auto x_pos = std::distance(curr_row->begin(), inserter);
+	    unsigned long x_pos = std::distance(curr_row->begin(), inserter);
 	    ++curr_row;
 	    if(curr_row->size() >= 1)
-		x_pos = std::min(x_pos, static_cast<long>(curr_row->size())-1);
+		x_pos = std::min(x_pos, curr_row->size()-1);
 	    else
 		x_pos = 0;
 	    inserter = std::next(curr_row->begin(), x_pos);
