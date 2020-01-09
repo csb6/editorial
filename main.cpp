@@ -37,6 +37,8 @@ void draw(const std::list<std::list<char>> &buffer)
 std::list<std::list<char>> load(const char *filename)
 {
     std::ifstream file(filename);
+    if(!file)
+	throw std::ifstream::failure("Could not open given file");
     std::list<std::list<char>> buffer;
     buffer.push_back(std::list<char>{});
     auto curr_row = buffer.begin();
@@ -69,12 +71,14 @@ void save(const std::list<std::list<char>> &buffer, const char *filename)
 }
 
 
-int main()
+int main(int argc, char **argv)
 {
-    Termbox tb;
-    const char *filename = "test.txt";
+    const char *filename = "README.md";
+    if(argc > 1)
+	filename = argv[1];
     std::list<std::list<char>> buffer{load(filename)};
 
+    Termbox tb;
     auto curr_row = buffer.begin();
     auto inserter = curr_row->begin();
     int cursor_x = 0;
@@ -225,6 +229,11 @@ int main()
 	    tb_present();
 	    break;
 	default: {
+	    if(curr_event.key != 0) {
+		// Prevents unknown keybindings from being treated as characters
+		curr_event.key = 0;
+		break;
+	    }
 	    curr_row->insert(inserter, curr_event.ch);
 	    ++cursor_x;
 	    tb_set_cursor(cursor_x, cursor_y);
