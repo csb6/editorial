@@ -2,8 +2,11 @@
 #include <list>
 #include <algorithm>
 #include <iterator>
+#include <string_view>
 #include "termbox.h"
 
+/**Manages Termbox terminal-drawing library, which treats screen as grid of
+   cells, with each cell holding a single character*/
 class Termbox {
 public:
     Termbox()
@@ -15,7 +18,8 @@ public:
     ~Termbox() { tb_shutdown(); }
 };
 
-
+/**Writes as much of the given char grid to the screen as will fit;
+   no line-wrapping (lines will be cut off when at edge)*/
 void draw(const std::list<std::list<char>> &buffer)
 {
     int col = 0;
@@ -34,6 +38,28 @@ void draw(const std::list<std::list<char>> &buffer)
     }
 }
 
+/**Writes the given text to the screen with optional coloring; text starts
+   at the given coordinates, continuing from left to right; text wraps when
+   it hits edge of screen*/
+void write(int col, int row, std::string_view text, uint16_t fg = TB_DEFAULT,
+	   uint16_t bg = TB_DEFAULT)
+{
+    const int width = tb_width();
+    const int height = tb_height();
+    if(col >= width || row >= height)
+	return;
+
+    for(char letter : text) {
+	if(col >= width) {
+	    ++row;
+	    col = 0;
+	}
+	tb_change_cell(col, row, letter, fg, bg);
+	++col;
+    }
+}
+
+/**Creates a 2D grid of characters representing a given text file*/
 std::list<std::list<char>> load(const char *filename)
 {
     std::ifstream file(filename);
@@ -58,6 +84,7 @@ std::list<std::list<char>> load(const char *filename)
     return buffer;
 }
 
+/**Write the buffer to disk as a text file*/
 void save(const std::list<std::list<char>> &buffer, const char *filename)
 {
     std::ofstream output_file(filename);
@@ -69,7 +96,6 @@ void save(const std::list<std::list<char>> &buffer, const char *filename)
 	    output_file.put('\n');
     }
 }
-
 
 int main(int argc, char **argv)
 {
@@ -86,6 +112,8 @@ int main(int argc, char **argv)
     tb_set_cursor(cursor_x, cursor_y);
     draw(buffer);
     tb_present();
+    // Flag to redraw screen on next tick
+    bool needs_redraw = false;
     tb_event curr_event;
     while(tb_poll_event(&curr_event) != -1) {
 	if(curr_event.type == TB_EVENT_RESIZE) {
@@ -93,8 +121,14 @@ int main(int argc, char **argv)
 	    draw(buffer);
 	    tb_present();
 	    continue;
-        } else if(curr_event.type != TB_EVENT_KEY)
+        } else if(curr_event.type != TB_EVENT_KEY) {
 	    continue;
+	} else if(needs_redraw) {
+	    tb_clear();
+	    draw(buffer);
+	    tb_present();
+	    needs_redraw = false;
+	}
 
 	switch(curr_event.key) {
 	case TB_KEY_CTRL_C:
@@ -103,6 +137,9 @@ int main(int argc, char **argv)
 	case TB_KEY_CTRL_S: {
 	    // Save to disk
 	    save(buffer, filename);
+	    write(0, 0, "Saved", TB_YELLOW);
+	    tb_present();
+	    needs_redraw = true;
 	    break;
 	}
 	case TB_KEY_ENTER:
