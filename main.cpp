@@ -1,7 +1,7 @@
-#include <iostream>
 #include <fstream>
 #include <list>
 #include <algorithm>
+#include <iterator>
 #include "termbox.h"
 
 class Termbox {
@@ -59,7 +59,6 @@ std::list<std::list<char>> load(const char *filename)
 
 void save(const std::list<std::list<char>> &buffer, const char *filename)
 {
-    // Save buffer to file
     std::ofstream output_file(filename);
     for(const auto &row_buf : buffer) {
 	for(char letter : row_buf) {
@@ -104,7 +103,6 @@ int main()
 	    break;
 	}
 	case TB_KEY_ENTER:
-	    // TODO: properly append contents of split row to new row
 	    if(inserter == curr_row->begin() && curr_row->size() >= 1) {
 		// If at beginning of line with at least some text,
 		// newline goes before the cursor's row
@@ -117,6 +115,15 @@ int main()
 		inserter = curr_row->begin();
 		cursor_x = 0;
 		++cursor_y;
+	    } else {
+		auto next_row = buffer.insert(std::next(curr_row), std::list<char>{});
+		std::copy(inserter, curr_row->end(),
+			  std::back_inserter(*next_row));
+		curr_row->erase(inserter, curr_row->end());
+		curr_row = next_row;
+		inserter = curr_row->begin();
+		cursor_x = 0;
+		++cursor_y;
 	    }
 	    tb_set_cursor(cursor_x, cursor_y);
 	    tb_clear();
@@ -125,7 +132,6 @@ int main()
 	    break;
 	case TB_KEY_BACKSPACE:
 	case TB_KEY_BACKSPACE2: {
-	    // TODO: properly append contents of erased row to prior row
 	    if(inserter != curr_row->begin()) {
 		// If line isn't empty, just remove the character
 		inserter = curr_row->erase(std::prev(inserter));
@@ -142,8 +148,10 @@ int main()
 		    cursor_x = 0;
 		}
 	    } else if(curr_row != buffer.begin()){
+		// If deleting newline in front of line with text, move text of
+		// that line to the end of the prior line
 		auto prior_row = std::prev(curr_row);
-		std::copy(curr_row->begin(), curr_row->end(),
+		std::move(curr_row->begin(), curr_row->end(),
 			  std::back_inserter(*prior_row));
 		--cursor_y;
 		buffer.erase(curr_row);
