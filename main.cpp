@@ -8,8 +8,7 @@ class Termbox {
 public:
     Termbox()
     {
-	int status = tb_init();
-	if(status < 0) {
+	if(tb_init() < 0) {
 	    throw std::runtime_error("Termbox could not start-up properly");
 	}
     }
@@ -110,12 +109,13 @@ int main()
 		inserter = curr_row->begin();
 		cursor_x = 0;
 	    } else if(inserter == curr_row->end()) {
-		// Newline goes after the cursor's row
+		// If at end of line, newline goes after the cursor's row
 		curr_row = buffer.insert(std::next(curr_row), std::list<char>{});
 		inserter = curr_row->begin();
 		cursor_x = 0;
 		++cursor_y;
 	    } else {
+		// If in middle of line, all text after newline goes to next line
 		auto next_row = buffer.insert(std::next(curr_row), std::list<char>{});
 		std::copy(inserter, curr_row->end(),
 			  std::back_inserter(*next_row));
@@ -140,13 +140,8 @@ int main()
 		// If line is empty and not the first row, delete that line
 		curr_row = std::prev(buffer.erase(curr_row));
 		--cursor_y;
-		if(curr_row->size() >= 1) {
-		    inserter = std::prev(curr_row->end());
-		    cursor_x = curr_row->size() - 1;
-		} else {
-		    inserter = curr_row->begin();
-		    cursor_x = 0;
-		}
+		inserter = curr_row->end();
+		cursor_x = curr_row->size();
 	    } else if(curr_row != buffer.begin()){
 		// If deleting newline in front of line with text, move text of
 		// that line to the end of the prior line
@@ -156,13 +151,8 @@ int main()
 		--cursor_y;
 		buffer.erase(curr_row);
 		curr_row = prior_row;
-		if(curr_row->size() >= 1) {
-		    inserter = std::prev(curr_row->end());
-		    cursor_x = curr_row->size() - 1;
-		} else {
-		    inserter = curr_row->begin();
-		    cursor_x = 0;
-		}
+		inserter = curr_row->end();
+		cursor_x = curr_row->size();
 	    }
 	    tb_set_cursor(cursor_x, cursor_y);
 	    tb_clear();
@@ -194,13 +184,8 @@ int main()
 		// Can't go left anymore at buffer start
 		--curr_row;
 		--cursor_y;
-		if(curr_row->size() >= 1) {
-		    inserter = std::prev(curr_row->end());
-		    cursor_x = curr_row->size() - 1;
-		} else {
-		    inserter = curr_row->begin();
-		    cursor_x = 0;
-		}
+		inserter = curr_row->end();
+		cursor_x = curr_row->size();
 	    }
 	    tb_set_cursor(cursor_x, cursor_y);
 	    tb_present();
@@ -210,10 +195,7 @@ int main()
 		break;
 	    unsigned long x_pos = std::distance(curr_row->begin(), inserter);
 	    --curr_row;
-	    if(curr_row->size() >= 1)
-		x_pos = std::min(x_pos, curr_row->size()-1);
-	    else
-		x_pos = 0;
+	    x_pos = std::min(x_pos, curr_row->size());
 	    inserter = std::next(curr_row->begin(), x_pos);
 	    cursor_x = x_pos;
 	    --cursor_y;
@@ -226,10 +208,7 @@ int main()
 		break;
 	    unsigned long x_pos = std::distance(curr_row->begin(), inserter);
 	    ++curr_row;
-	    if(curr_row->size() >= 1)
-		x_pos = std::min(x_pos, curr_row->size()-1);
-	    else
-		x_pos = 0;
+	    x_pos = std::min(x_pos, curr_row->size());
 	    inserter = std::next(curr_row->begin(), x_pos);
 	    cursor_x = x_pos;
 	    ++cursor_y;
