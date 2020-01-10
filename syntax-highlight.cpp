@@ -1,4 +1,3 @@
-#include <list>
 #include <string_view>
 #include "termbox.h"
 

@@ -6,7 +6,10 @@
 #include "termbox.h"
 
 void highlight(int start = 0);
+
 constexpr std::size_t TabSize = 4; // in spaces
+using text_row_t = std::list<char>;
+using text_buffer_t = std::list<text_row_t>;
 
 /**Manages Termbox terminal-drawing library, which treats screen as grid of
    cells, with each cell holding a single character*/
@@ -21,25 +24,44 @@ public:
     ~Termbox() { tb_shutdown(); }
 };
 
+static void clear_screen(int startRow, int endRow)
+{
+    if(endRow > tb_height() || endRow < startRow)
+	return;
+    const int width = tb_width();
+    tb_cell *buf = tb_cell_buffer();
+    std::for_each(buf+startRow*width, buf+endRow*width, [](tb_cell &cell) {
+		      cell.ch = ' ';
+		      cell.fg = TB_DEFAULT;
+		      cell.bg = TB_DEFAULT;
+		  });
+}
+
 /**Writes as much of the given char grid to the screen as will fit;
    no line-wrapping (lines will be cut off when at edge)*/
-void draw(const std::list<std::list<char>> &buffer)
+void draw(text_buffer_t::const_iterator start,
+	  text_buffer_t::const_iterator end, int startRow)
 {
     int col = 0;
-    int row = 0;
+    int row = startRow;
     const int width = tb_width();
     const int height = tb_height();
-    for(const auto &row_buf : buffer) {
+    for(auto row_buf = start; row_buf != end; ++row_buf) {
 	if(row >= height) break;
 	col = 0;
-	for(char letter : row_buf) {
+	for(char letter : *row_buf) {
 	    if(col >= width) break;
 	    tb_change_cell(col, row, letter, TB_DEFAULT, TB_DEFAULT);
 	    ++col;
 	}
 	++row;
     }
-    highlight();
+    highlight(startRow);
+}
+
+void draw(const text_buffer_t &buffer)
+{
+    draw(buffer.begin(), buffer.end(), 0);
 }
 
 /**Writes the given text to the screen with optional coloring; text starts
@@ -66,18 +88,18 @@ void write(int col, int row, std::string_view text, uint16_t fg = TB_DEFAULT,
 
 
 /**Creates a 2D grid of characters representing a given text file*/
-std::list<std::list<char>> load(const char *filename)
+text_buffer_t load(const char *filename)
 {
     std::ifstream file(filename);
     if(!file)
 	throw std::ifstream::failure("Could not open given file");
-    std::list<std::list<char>> buffer;
-    buffer.push_back(std::list<char>{});
+    text_buffer_t buffer;
+    buffer.push_back(text_row_t{});
     auto curr_row = buffer.begin();
     while(file) {
 	char curr = file.get();
 	if(curr == '\n') {
-	    buffer.push_back(std::list<char>{});
+	    buffer.push_back(text_row_t{});
 	    ++curr_row;
 	} else {
 	    curr_row->push_back(curr);
@@ -91,7 +113,7 @@ std::list<std::list<char>> load(const char *filename)
 }
 
 /**Write the buffer to disk as a text file*/
-void save(const std::list<std::list<char>> &buffer, const char *filename)
+void save(const text_buffer_t &buffer, const char *filename)
 {
     std::ofstream output_file(filename);
     for(const auto &row_buf : buffer) {
@@ -109,7 +131,7 @@ int main(int argc, char **argv)
     const char *filename = "README.md";
     if(argc > 1)
 	filename = argv[1];
-    std::list<std::list<char>> buffer{load(filename)};
+    text_buffer_t buffer{load(filename)};
 
     Termbox tb;
     auto curr_row = buffer.begin();
@@ -153,18 +175,18 @@ int main(int argc, char **argv)
 	    if(inserter == curr_row->begin() && curr_row->size() >= 1) {
 		// If at beginning of line with at least some text,
 		// newline goes before the cursor's row
-		curr_row = buffer.insert(curr_row, std::list<char>{});
+		curr_row = buffer.insert(curr_row, text_row_t{});
 		inserter = curr_row->begin();
 		cursor_x = 0;
 	    } else if(inserter == curr_row->end()) {
 		// If at end of line, newline goes after the cursor's row
-		curr_row = buffer.insert(std::next(curr_row), std::list<char>{});
+		curr_row = buffer.insert(std::next(curr_row), text_row_t{});
 		inserter = curr_row->begin();
 		cursor_x = 0;
 		++cursor_y;
 	    } else {
 		// If in middle of line, all text after newline goes to next line
-		auto next_row = buffer.insert(std::next(curr_row), std::list<char>{});
+		auto next_row = buffer.insert(std::next(curr_row), text_row_t{});
 		std::copy(inserter, curr_row->end(),
 			  std::back_inserter(*next_row));
 		curr_row->erase(inserter, curr_row->end());
@@ -203,8 +225,8 @@ int main(int argc, char **argv)
 		cursor_x = curr_row->size();
 	    }
 	    tb_set_cursor(cursor_x, cursor_y);
-	    tb_clear();
-	    draw(buffer);
+	    clear_screen(cursor_y, tb_height());
+	    draw(curr_row, buffer.end(), cursor_y);
 	    tb_present();
 	    break;
 	}
@@ -268,16 +290,16 @@ int main(int argc, char **argv)
 	    curr_row->insert(inserter, ' ');
 	    ++cursor_x;
 	    tb_set_cursor(cursor_x, cursor_y);
-	    tb_clear();
-	    draw(buffer);
+	    clear_screen(cursor_y, cursor_y+1);
+	    draw(curr_row, std::next(curr_row), cursor_y);
 	    tb_present();
 	    break;
 	case TB_KEY_TAB:
 	    curr_row->insert(inserter, TabSize, ' ');
 	    cursor_x += TabSize;
 	    tb_set_cursor(cursor_x, cursor_y);
-	    tb_clear();
-	    draw(buffer);
+	    clear_screen(cursor_y, cursor_y+1);
+	    draw(curr_row, std::next(curr_row), cursor_y);
 	    tb_present();
 	    break;
 	default: {
@@ -289,8 +311,8 @@ int main(int argc, char **argv)
 	    curr_row->insert(inserter, curr_event.ch);
 	    ++cursor_x;
 	    tb_set_cursor(cursor_x, cursor_y);
-	    tb_clear();
-	    draw(buffer);
+	    clear_screen(cursor_y, cursor_y+1);
+	    draw(curr_row, std::next(curr_row), cursor_y);
 	    tb_present();
 	}
 	}

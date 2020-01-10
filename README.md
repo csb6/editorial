@@ -8,9 +8,11 @@ A text editor for your terminal, written in C++17.
 
 **Ctrl-c** : Quit (without saving)
 
-**Left and Right Arrows** : Move one character forward/backward
+**Left and Right Arrows** : Move cursor one character forward/backward
 
-**Up and Down Arrows** : Move one line up/down
+**Up and Down Arrows** : Move cursor one line up/down
+
+**Tab** : Insert four spaces at the cursor
 
 ## Installation
 
