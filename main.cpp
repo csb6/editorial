@@ -6,7 +6,7 @@
 #include <string_view>
 #include "termbox.h"
 
-void highlight(int start = 0);
+void highlight(int start, int end);
 
 constexpr std::size_t TabSize = 4; // in spaces
 
@@ -42,7 +42,7 @@ static void clear_screen(int startRow, int endRow)
 /**Writes as much of the given char grid to the screen as will fit;
    no line-wrapping (lines will be cut off when at edge)*/
 void draw(text_buffer_t::const_iterator start,
-	  text_buffer_t::const_iterator end, int startRow)
+	  text_buffer_t::const_iterator end, int startRow, int endRow)
 {
     int col = 0;
     int row = startRow;
@@ -59,12 +59,12 @@ void draw(text_buffer_t::const_iterator start,
 	}
 	++row;
     }
-    highlight(startRow);
+    highlight(startRow, endRow);
 }
 
 void draw(const text_buffer_t &buffer)
 {
-    draw(buffer.begin(), buffer.end(), 0);
+    draw(buffer.begin(), buffer.end(), 0, tb_height() * tb_width());
 }
 
 /**Writes the given text to the screen with optional coloring; text starts
@@ -199,8 +199,8 @@ int main(int argc, char **argv)
 		++cursor_y;
 	    }
 	    tb_set_cursor(cursor_x, cursor_y);
-	    clear_screen(cursor_y, tb_height());
-	    draw(curr_row, buffer.end(), cursor_y);
+	    clear_screen(cursor_y-1, tb_height());
+	    draw(std::prev(curr_row), buffer.end(), cursor_y-1, tb_height());
 	    tb_present();
 	    break;
 	case TB_KEY_BACKSPACE:
@@ -229,7 +229,7 @@ int main(int argc, char **argv)
 	    }
 	    tb_set_cursor(cursor_x, cursor_y);
 	    clear_screen(cursor_y, tb_height());
-	    draw(curr_row, buffer.end(), cursor_y);
+	    draw(curr_row, buffer.end(), cursor_y, tb_height());
 	    tb_present();
 	    break;
 	}
@@ -294,7 +294,7 @@ int main(int argc, char **argv)
 	    ++cursor_x;
 	    tb_set_cursor(cursor_x, cursor_y);
 	    clear_screen(cursor_y, cursor_y+1);
-	    draw(curr_row, std::next(curr_row), cursor_y);
+	    draw(curr_row, std::next(curr_row), cursor_y, cursor_y+1);
 	    tb_present();
 	    break;
 	case TB_KEY_TAB:
@@ -302,7 +302,7 @@ int main(int argc, char **argv)
 	    cursor_x += TabSize;
 	    tb_set_cursor(cursor_x, cursor_y);
 	    clear_screen(cursor_y, cursor_y+1);
-	    draw(curr_row, std::next(curr_row), cursor_y);
+	    draw(curr_row, std::next(curr_row), cursor_y, cursor_y+1);
 	    tb_present();
 	    break;
 	default: {
@@ -315,7 +315,7 @@ int main(int argc, char **argv)
 	    ++cursor_x;
 	    tb_set_cursor(cursor_x, cursor_y);
 	    clear_screen(cursor_y, cursor_y+1);
-	    draw(curr_row, std::next(curr_row), cursor_y);
+	    draw(curr_row, std::next(curr_row), cursor_y, cursor_y+1);
 	    tb_present();
 	}
 	}
