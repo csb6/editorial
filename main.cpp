@@ -1,5 +1,6 @@
 #include <fstream>
 #include <list>
+#include <vector>
 #include <algorithm>
 #include <iterator>
 #include <string_view>
@@ -8,7 +9,8 @@
 void highlight(int start = 0);
 
 constexpr std::size_t TabSize = 4; // in spaces
-using text_row_t = std::list<char>;
+
+using text_row_t = std::vector<char>;
 using text_buffer_t = std::list<text_row_t>;
 
 /**Manages Termbox terminal-drawing library, which treats screen as grid of
@@ -51,6 +53,7 @@ void draw(text_buffer_t::const_iterator start,
 	col = 0;
 	for(char letter : *row_buf) {
 	    if(col >= width) break;
+	    else if(std::isspace(letter)) letter = ' ';
 	    tb_change_cell(col, row, letter, TB_DEFAULT, TB_DEFAULT);
 	    ++col;
 	}
@@ -196,8 +199,8 @@ int main(int argc, char **argv)
 		++cursor_y;
 	    }
 	    tb_set_cursor(cursor_x, cursor_y);
-	    tb_clear();
-	    draw(buffer);
+	    clear_screen(cursor_y, tb_height());
+	    draw(curr_row, buffer.end(), cursor_y);
 	    tb_present();
 	    break;
 	case TB_KEY_BACKSPACE:
@@ -287,7 +290,7 @@ int main(int argc, char **argv)
 	    break;
 	}
 	case TB_KEY_SPACE:
-	    curr_row->insert(inserter, ' ');
+	    inserter = std::next(curr_row->insert(inserter, ' '));
 	    ++cursor_x;
 	    tb_set_cursor(cursor_x, cursor_y);
 	    clear_screen(cursor_y, cursor_y+1);
@@ -308,7 +311,7 @@ int main(int argc, char **argv)
 		curr_event.key = 0;
 		break;
 	    }
-	    curr_row->insert(inserter, curr_event.ch);
+	    inserter = std::next(curr_row->insert(inserter, curr_event.ch));
 	    ++cursor_x;
 	    tb_set_cursor(cursor_x, cursor_y);
 	    clear_screen(cursor_y, cursor_y+1);
