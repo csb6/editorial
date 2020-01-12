@@ -5,13 +5,15 @@
 #include <iterator>
 #include <string_view>
 #include "termbox.h"
-
-void highlight(int start, int end);
+#include "syntax-highlight.h"
 
 constexpr std::size_t TabSize = 4; // in spaces
 
 using text_row_t = std::vector<char>;
 using text_buffer_t = std::list<text_row_t>;
+
+// The current syntax highlighting mode; set when loading a file
+void(*highlight_mode)(int,int);
 
 /**Manages Termbox terminal-drawing library, which treats screen as grid of
    cells, with each cell holding a single character*/
@@ -59,7 +61,7 @@ void draw(text_buffer_t::const_iterator start,
 	}
 	++row;
     }
-    highlight(startRow, endRow);
+    highlight_mode(startRow, endRow);
 }
 
 void draw(const text_buffer_t &buffer)
@@ -132,9 +134,17 @@ void save(const text_buffer_t &buffer, const char *filename)
 int main(int argc, char **argv)
 {
     const char *filename = "README.md";
-    if(argc > 1)
+    if(argc > 1) {
 	filename = argv[1];
+    }
     text_buffer_t buffer{load(filename)};
+    {
+	std::string_view name(filename);
+	if(name.size() >= 3 && name.substr(name.size()-3) == ".md")
+	    highlight_mode = markdown_mode;
+	else if(name.size() >= 4 && name.substr(name.size()-4) == ".cpp")
+	    highlight_mode = cpp_mode;
+    }
 
     Termbox tb;
     auto curr_row = buffer.begin();
@@ -294,7 +304,7 @@ int main(int argc, char **argv)
 	    ++cursor_x;
 	    tb_set_cursor(cursor_x, cursor_y);
 	    clear_screen(cursor_y, cursor_y+1);
-	    draw(curr_row, std::next(curr_row), cursor_y, cursor_y+1);
+	    draw(curr_row, std::next(curr_row), cursor_y, tb_height());
 	    tb_present();
 	    break;
 	case TB_KEY_TAB:
@@ -302,7 +312,7 @@ int main(int argc, char **argv)
 	    cursor_x += TabSize;
 	    tb_set_cursor(cursor_x, cursor_y);
 	    clear_screen(cursor_y, cursor_y+1);
-	    draw(curr_row, std::next(curr_row), cursor_y, cursor_y+1);
+	    draw(curr_row, std::next(curr_row), cursor_y, tb_height());
 	    tb_present();
 	    break;
 	default: {
@@ -315,7 +325,7 @@ int main(int argc, char **argv)
 	    ++cursor_x;
 	    tb_set_cursor(cursor_x, cursor_y);
 	    clear_screen(cursor_y, cursor_y+1);
-	    draw(curr_row, std::next(curr_row), cursor_y, cursor_y+1);
+	    draw(curr_row, std::next(curr_row), cursor_y, tb_height());
 	    tb_present();
 	}
 	}
