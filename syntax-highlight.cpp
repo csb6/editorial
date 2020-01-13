@@ -4,7 +4,7 @@
 
 static bool match(const tb_cell *screen, int start, std::string_view target)
 {
-    if(start + target.size() > static_cast<unsigned long>(tb_width() * tb_height()))
+    if(start + target.size() >= static_cast<unsigned long>(tb_width() * tb_height()))
 	return false;
 
     for(std::size_t i = 0; i < target.size(); ++i) {

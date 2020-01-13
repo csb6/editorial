@@ -66,7 +66,7 @@ void draw(text_buffer_t::const_iterator start,
 
 void draw(const text_buffer_t &buffer)
 {
-    draw(buffer.begin(), buffer.end(), 0, tb_height() * tb_width());
+    draw(buffer.begin(), buffer.end(), 0, tb_height());
 }
 
 /**Writes the given text to the screen with optional coloring; text starts
