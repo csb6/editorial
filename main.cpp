@@ -4,8 +4,8 @@
 #include <algorithm>
 #include <iterator>
 #include <string_view>
-#include "termbox.h"
-#include "syntax-highlight.h"
+#include "screen.h"
+//#include "syntax-highlight.h"
 
 constexpr std::size_t TabSize = 4; // in spaces
 
@@ -15,32 +15,6 @@ using text_buffer_t = std::list<text_row_t>;
 // The current syntax highlighting mode; set when loading a file
 void(*highlight_mode)(int,int);
 
-/**Manages Termbox terminal-drawing library, which treats screen as grid of
-   cells, with each cell holding a single character*/
-class Termbox {
-public:
-    Termbox()
-    {
-	if(tb_init() < 0) {
-	    throw std::runtime_error("Termbox could not start-up properly");
-	}
-    }
-    ~Termbox() { tb_shutdown(); }
-};
-
-static void clear_screen(int startRow, int endRow)
-{
-    if(endRow > tb_height() || endRow < startRow)
-	return;
-    const int width = tb_width();
-    tb_cell *buf = tb_cell_buffer();
-    std::for_each(buf+startRow*width, buf+endRow*width, [](tb_cell &cell) {
-		      cell.ch = ' ';
-		      cell.fg = TB_DEFAULT;
-		      cell.bg = TB_DEFAULT;
-		  });
-}
-
 /**Writes as much of the given char grid to the screen as will fit;
    no line-wrapping (lines will be cut off when at edge)*/
 void draw(text_buffer_t::const_iterator start,
@@ -48,31 +22,31 @@ void draw(text_buffer_t::const_iterator start,
 {
     int col = 0;
     int row = startRow;
-    const int width = tb_width();
-    const int height = tb_height();
+    const int width = screen_width();
+    const int height = screen_height();
     for(auto row_buf = start; row_buf != end; ++row_buf) {
 	if(row >= height) break;
 	col = 0;
 	for(char letter : *row_buf) {
 	    if(col >= width) break;
 	    else if(std::isspace(letter)) letter = ' ';
-	    tb_change_cell(col, row, letter, TB_DEFAULT, TB_DEFAULT);
+	    set_cell(col, row, letter);
 	    ++col;
 	}
 	++row;
     }
-    highlight_mode(startRow, endRow);
+    //highlight_mode(startRow, endRow);
 }
 
 void draw(const text_buffer_t &buffer)
 {
-    draw(buffer.begin(), buffer.end(), 0, tb_height());
+    draw(buffer.begin(), buffer.end(), 0, screen_height());
 }
 
 /**Writes the given text to the screen with optional coloring; text starts
    at the given coordinates, continuing from left to right; text wraps when
    it hits edge of screen*/
-void write(int col, int row, std::string_view text, uint16_t fg = TB_DEFAULT,
+/*void write(int col, int row, std::string_view text, uint16_t fg = TB_DEFAULT,
 	   uint16_t bg = TB_DEFAULT)
 {
     const int width = tb_width();
@@ -89,7 +63,7 @@ void write(int col, int row, std::string_view text, uint16_t fg = TB_DEFAULT,
 	tb_change_cell(col, row, letter, fg, bg);
 	++col;
     }
-}
+    }*/
 
 
 /**Creates a 2D grid of characters representing a given text file*/
@@ -138,53 +112,55 @@ int main(int argc, char **argv)
 	filename = argv[1];
     }
     text_buffer_t buffer{load(filename)};
-    {
+    /*{
 	std::string_view name(filename);
 	if(name.size() >= 3 && name.substr(name.size()-3) == ".md")
 	    highlight_mode = markdown_mode;
 	else if(name.size() >= 4 && name.substr(name.size()-4) == ".cpp")
 	    highlight_mode = cpp_mode;
-    }
+	    }*/
 
-    Termbox tb;
+    Screen window;
     auto curr_row = buffer.begin();
     auto inserter = curr_row->begin();
     int cursor_x = 0;
     int cursor_y = 0;
-    tb_set_cursor(cursor_x, cursor_y);
     draw(buffer);
-    tb_present();
+    set_cursor(cursor_x, cursor_y);
+    screen_present();
     // Flag to redraw screen on next tick
     bool needs_redraw = false;
-    tb_event curr_event{};
-    while(tb_poll_event(&curr_event) != -1) {
-	if(curr_event.type == TB_EVENT_RESIZE) {
-	    tb_clear();
+    bool done = false;
+    int input;
+    while(!done && (input = get_ch())) {
+	if(input == Key_Resize) {
+	    screen_clear();
 	    draw(buffer);
-	    tb_present();
-	    continue;
-        } else if(curr_event.type != TB_EVENT_KEY) {
+	    set_cursor(cursor_x, cursor_y);
+	    screen_present_resize();
 	    continue;
 	} else if(needs_redraw) {
-	    tb_clear();
+	    screen_clear();
 	    draw(buffer);
-	    tb_present();
+	    set_cursor(cursor_x, cursor_y);
+	    screen_present();
 	    needs_redraw = false;
 	}
 
-	switch(curr_event.key) {
-	case TB_KEY_CTRL_C:
+	switch(input) {
+	case ctrl('c'):
 	    // Exit program
 	    return 0;
-	case TB_KEY_CTRL_S: {
+	case ctrl('s'): {
 	    // Save to disk
 	    save(buffer, filename);
-	    write(0, 0, "Saved", TB_YELLOW);
-	    tb_present();
+	    //write(0, 0, "Saved", TB_YELLOW);
+	    screen_present();
 	    needs_redraw = true;
 	    break;
 	}
-	case TB_KEY_ENTER:
+	case Key_Enter:
+	case Key_Enter2:
 	    if(inserter == curr_row->begin() && curr_row->size() >= 1) {
 		// If at beginning of line with at least some text,
 		// newline goes before the cursor's row
@@ -208,13 +184,13 @@ int main(int argc, char **argv)
 		cursor_x = 0;
 		++cursor_y;
 	    }
-	    tb_set_cursor(cursor_x, cursor_y);
-	    clear_screen(cursor_y-1, tb_height());
-	    draw(std::prev(curr_row), buffer.end(), cursor_y-1, tb_height());
-	    tb_present();
+	    screen_clear();
+	    draw(buffer);
+	    set_cursor(cursor_x, cursor_y);
+	    screen_present();
 	    break;
-	case TB_KEY_BACKSPACE:
-	case TB_KEY_BACKSPACE2: {
+	case Key_Backspace:
+	case Key_Backspace2: {
 	    if(inserter != curr_row->begin()) {
 		// If line isn't empty, just remove the character
 		inserter = curr_row->erase(std::prev(inserter));
@@ -237,13 +213,13 @@ int main(int argc, char **argv)
 		inserter = curr_row->end();
 		cursor_x = curr_row->size();
 	    }
-	    tb_set_cursor(cursor_x, cursor_y);
-	    clear_screen(cursor_y, tb_height());
-	    draw(curr_row, buffer.end(), cursor_y, tb_height());
-	    tb_present();
+	    screen_clear();
+	    draw(buffer);
+	    set_cursor(cursor_x, cursor_y);
+	    screen_present();
 	    break;
 	}
-	case TB_KEY_ARROW_RIGHT:
+	case Key_Right:
 	    if(inserter != curr_row->end()) {
 		// Go right as long as there is text left to go over
 		++inserter;
@@ -255,10 +231,10 @@ int main(int argc, char **argv)
 		++cursor_y;
 		cursor_x = 0;
 	    }
-	    tb_set_cursor(cursor_x, cursor_y);
-	    tb_present();
+	    set_cursor(cursor_x, cursor_y);
+	    screen_present();
 	    break;
-	case TB_KEY_ARROW_LEFT:
+	case Key_Left:
 	    if(inserter != curr_row->begin()) {
 		// Go left as long as there is text left to go over
 		--inserter;
@@ -270,10 +246,10 @@ int main(int argc, char **argv)
 		inserter = curr_row->end();
 		cursor_x = curr_row->size();
 	    }
-	    tb_set_cursor(cursor_x, cursor_y);
-	    tb_present();
+	    set_cursor(cursor_x, cursor_y);
+	    screen_present();
 	    break;
-	case TB_KEY_ARROW_UP: {
+	case Key_Up: {
 	    if(curr_row == buffer.begin())
 		break;
 	    unsigned long x_pos = std::distance(curr_row->begin(), inserter);
@@ -282,11 +258,11 @@ int main(int argc, char **argv)
 	    inserter = std::next(curr_row->begin(), x_pos);
 	    cursor_x = x_pos;
 	    --cursor_y;
-	    tb_set_cursor(cursor_x, cursor_y);
-	    tb_present();
+	    set_cursor(cursor_x, cursor_y);
+	    screen_present();
 	    break;
 	}
-	case TB_KEY_ARROW_DOWN: {
+	case Key_Down: {
 	    if(std::next(curr_row) == buffer.end())
 		break;
 	    unsigned long x_pos = std::distance(curr_row->begin(), inserter);
@@ -295,38 +271,25 @@ int main(int argc, char **argv)
 	    inserter = std::next(curr_row->begin(), x_pos);
 	    cursor_x = x_pos;
 	    ++cursor_y;
-	    tb_set_cursor(cursor_x, cursor_y);
-	    tb_present();
+	    set_cursor(cursor_x, cursor_y);
+	    screen_present();
 	    break;
 	}
-	case TB_KEY_SPACE:
-	    inserter = std::next(curr_row->insert(inserter, ' '));
-	    ++cursor_x;
-	    tb_set_cursor(cursor_x, cursor_y);
-	    clear_screen(cursor_y, cursor_y+1);
-	    draw(curr_row, std::next(curr_row), cursor_y, tb_height());
-	    tb_present();
-	    break;
-	case TB_KEY_TAB:
+	case Key_Tab:
 	    curr_row->insert(inserter, TabSize, ' ');
 	    cursor_x += TabSize;
-	    tb_set_cursor(cursor_x, cursor_y);
-	    clear_screen(cursor_y, cursor_y+1);
-	    draw(curr_row, std::next(curr_row), cursor_y, tb_height());
-	    tb_present();
+	    screen_clear();
+	    draw(buffer);
+	    set_cursor(cursor_x, cursor_y);
+	    screen_present();
 	    break;
 	default: {
-	    if(curr_event.key != 0) {
-		// Prevents unknown keybindings from being treated as characters
-		curr_event.key = 0;
-		break;
-	    }
-	    inserter = std::next(curr_row->insert(inserter, curr_event.ch));
+	    inserter = std::next(curr_row->insert(inserter, input));
 	    ++cursor_x;
-	    tb_set_cursor(cursor_x, cursor_y);
-	    clear_screen(cursor_y, cursor_y+1);
-	    draw(curr_row, std::next(curr_row), cursor_y, tb_height());
-	    tb_present();
+	    screen_clear();
+	    draw(buffer);
+	    set_cursor(cursor_x, cursor_y);
+	    screen_present();
 	}
 	}
     }

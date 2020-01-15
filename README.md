@@ -13,9 +13,7 @@ you find it interesting, at least from a programming standpoint.
 - Basic file saving/loading
 - Very simple implementation; under 500 lines of C++ code
 - Low CPU and memory usage
-- Works on any terminal supported by termbox
-(essentially any commonly-used terminal for any commonly-used Unix-like
-system).
+- Works on any terminal supported by ncurses (essentially anything)
 
 ## Key Bindings
 
@@ -31,10 +29,5 @@ system).
 
 ## Installation
 
-After cloning the repository and its submodule (termbox), run `build-full.sh`.
-This will build `termbox`, the C library used to draw to the terminal screen.
-
-Only call `build-full.sh` after cloning or updating the submodule; otherwise,
-to rebuild the program after changes to this repo's source code, run
-`build.sh`, which will build only the application code. The termbox binary,
-(named `libtermbox.a` or similar), will always be statically linked.
+Just run `./build.sh`. Make sure that you have ncurses installed and
+in a location that your compiler can find.
