@@ -24,25 +24,13 @@ Screen::Screen()
 
 Screen::~Screen() { endwin(); }
 
-int screen_width()
-{
-    return COLS;
-}
+int screen_width() { return COLS; }
 
-int screen_height()
-{
-    return LINES;
-}
+int screen_height() { return LINES; }
 
-void screen_clear()
-{
-    clear();
-}
+void screen_clear() { clear(); }
 
-void screen_present()
-{
-    refresh();
-}
+void screen_present() { refresh(); }
 
 void screen_present_resize()
 {
@@ -56,28 +44,34 @@ int screen_get(int x, int y)
     return mvinch(y, x) & A_CHARTEXT;
 }
 
-int get_ch()
-{
-    return getch();
-}
+int get_ch() { return getch(); }
 
 class UsingColorPair {
 private:
-    const short m_pair;
+    const NCURSES_ATTR_T m_pair;
 public:
     explicit UsingColorPair(Color fg)
-	: m_pair(static_cast<short>(fg))
+	: m_pair(COLOR_PAIR(static_cast<NCURSES_ATTR_T>(fg)))
     {
-	attron(COLOR_PAIR(m_pair));
+	attron(m_pair);
     }
-    short get() const { return COLOR_PAIR(m_pair); }
-    ~UsingColorPair() { attroff(COLOR_PAIR(m_pair)); }
+    NCURSES_ATTR_T get() const { return m_pair; }
+    ~UsingColorPair() { attroff(m_pair); }
 };
 
 void set_cell(int x, int y, chtype ch, Color fg)
 {
     UsingColorPair curr_color(fg);
     mvaddch(y, x, ch);
+}
+
+/**Writes the given text to the screen with optional coloring; text starts
+   at the given coordinates, continuing from left to right; text wraps when
+   it hits edge of screen*/
+void write(int x, int y, const char *text, Color fg)
+{
+    UsingColorPair curr_color(fg);
+    mvaddstr(y, x, text);
 }
 
 void set_cell_color(int x, int y, Color fg)
@@ -89,7 +83,4 @@ void set_cell_color(int x, int y, Color fg)
     }
 }
 
-void set_cursor(int x, int y)
-{
-    move(y, x);
-}
+void set_cursor(int x, int y) { move(y, x); }

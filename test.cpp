@@ -1,9 +1,10 @@
 #include <iostream>
 
-int main(int argc)
+int main(int argc, char **argv)
 {
   bool foo = false;
   int a = 78;
+  char letter = 'o';
   if(a < 80) {
     std::cerr << "Error: a < 80\n";
     return 1;

@@ -43,29 +43,6 @@ void draw(const text_buffer_t &buffer)
     draw(buffer.begin(), buffer.end(), 0, screen_height());
 }
 
-/**Writes the given text to the screen with optional coloring; text starts
-   at the given coordinates, continuing from left to right; text wraps when
-   it hits edge of screen*/
-/*void write(int col, int row, std::string_view text, uint16_t fg = TB_DEFAULT,
-	   uint16_t bg = TB_DEFAULT)
-{
-    const int width = tb_width();
-    const int height = tb_height();
-    if(col >= width || row >= height)
-	return;
-
-    for(char letter : text) {
-	if(col >= width) {
-	    if(++row >= height)
-		break;
-	    col = 0;
-	}
-	tb_change_cell(col, row, letter, fg, bg);
-	++col;
-    }
-    }*/
-
-
 /**Creates a 2D grid of characters representing a given text file*/
 text_buffer_t load(const char *filename)
 {
@@ -154,7 +131,8 @@ int main(int argc, char **argv)
 	case ctrl('s'):
 	    // Save to disk
 	    save(buffer, filename);
-	    //write(0, 0, "Saved", TB_YELLOW);
+	    write(0, 0, "Saved", Color::Yellow);
+	    set_cursor(cursor_x, cursor_y);
 	    screen_present();
 	    needs_redraw = true;
 	    break;
@@ -163,9 +141,10 @@ int main(int argc, char **argv)
 	    if(inserter == curr_row->begin() && curr_row->size() >= 1) {
 		// If at beginning of line with at least some text,
 		// newline goes before the cursor's row
-		curr_row = buffer.insert(curr_row, text_row_t{});
+		curr_row = std::next(buffer.insert(curr_row, text_row_t{}));
 		inserter = curr_row->begin();
 		cursor_x = 0;
+		++cursor_y;
 	    } else if(inserter == curr_row->end()) {
 		// If at end of line, newline goes after the cursor's row
 		curr_row = buffer.insert(std::next(curr_row), text_row_t{});

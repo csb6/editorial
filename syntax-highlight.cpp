@@ -57,6 +57,7 @@ void cpp_mode(int start_row, int end_row)
 {
     const int width = screen_width();
     bool in_string = false;
+    bool in_char = false;
 
     for(int row = start_row; row < end_row; ++row) {
 	for(int col = 0; col < width; ++col) {
@@ -67,6 +68,10 @@ void cpp_mode(int start_row, int end_row)
 		    highlight(col, row, 8, PreprocessorColor);
 		}
 		break;
+	    case '\'':
+		set_cell_color(col, row, StringColor);
+		in_char = !in_char;
+		continue;
 	    case '"':
 		set_cell_color(col, row, StringColor);
 		in_string = !in_string;
@@ -105,7 +110,7 @@ void cpp_mode(int start_row, int end_row)
 		break;
 	    }
 
-	    if(in_string) {
+	    if(in_string || in_char) {
 		set_cell_color(col, row, StringColor);
 	    }
 	}
