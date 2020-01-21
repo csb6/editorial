@@ -51,6 +51,11 @@ void screen_present_resize()
     get_ch();
 }
 
+int screen_get(int x, int y)
+{
+    return mvinch(y, x) & A_CHARTEXT;
+}
+
 int get_ch()
 {
     return getch();
@@ -65,13 +70,23 @@ public:
     {
 	attron(COLOR_PAIR(m_pair));
     }
+    short get() const { return COLOR_PAIR(m_pair); }
     ~UsingColorPair() { attroff(COLOR_PAIR(m_pair)); }
 };
 
 void set_cell(int x, int y, chtype ch, Color fg)
 {
-    UsingColorPair scope_guard(fg);
+    UsingColorPair curr_color(fg);
     mvaddch(y, x, ch);
+}
+
+void set_cell_color(int x, int y, Color fg)
+{
+    UsingColorPair curr_color(fg);
+    auto character = mvinch(y, x);
+    if((character & A_COLOR) != curr_color.get()) {
+        mvaddch(y, x, character & A_CHARTEXT);
+    }
 }
 
 void set_cursor(int x, int y)

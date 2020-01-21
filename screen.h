@@ -28,8 +28,10 @@ int screen_height();
 void screen_clear();
 void screen_present();
 void screen_present_resize();
+int screen_get(int x, int y);
 int get_ch();
 void set_cell(int x, int y, unsigned int ch, Color fg = Color::White);
+void set_cell_color(int x, int y, Color fg);
 void set_cursor(int x, int y);
 constexpr int ctrl(int c) { return c & 0x1f; }
 #endif

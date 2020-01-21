@@ -30,4 +30,7 @@ you find it interesting, at least from a programming standpoint.
 ## Installation
 
 Just run `./build.sh`. Make sure that you have ncurses installed and
-in a location that your compiler can find.
+in a location that your compiler can find. Most Unix-like systems should
+have an ncurses shared library installed, but on Windows you will most
+likely have to install PDCurses, which implements the same interface as
+ncurses.

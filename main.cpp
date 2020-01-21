@@ -5,7 +5,7 @@
 #include <iterator>
 #include <string_view>
 #include "screen.h"
-//#include "syntax-highlight.h"
+#include "syntax-highlight.h"
 
 constexpr std::size_t TabSize = 4; // in spaces
 
@@ -35,7 +35,7 @@ void draw(text_buffer_t::const_iterator start,
 	}
 	++row;
     }
-    //highlight_mode(startRow, endRow);
+    highlight_mode(startRow, endRow);
 }
 
 void draw(const text_buffer_t &buffer)
@@ -112,13 +112,13 @@ int main(int argc, char **argv)
 	filename = argv[1];
     }
     text_buffer_t buffer{load(filename)};
-    /*{
+    {
 	std::string_view name(filename);
 	if(name.size() >= 3 && name.substr(name.size()-3) == ".md")
 	    highlight_mode = markdown_mode;
 	else if(name.size() >= 4 && name.substr(name.size()-4) == ".cpp")
-	    highlight_mode = cpp_mode;
-	    }*/
+	  highlight_mode = cpp_mode;
+    }
 
     Screen window;
     auto curr_row = buffer.begin();
@@ -151,14 +151,13 @@ int main(int argc, char **argv)
 	case ctrl('c'):
 	    // Exit program
 	    return 0;
-	case ctrl('s'): {
+	case ctrl('s'):
 	    // Save to disk
 	    save(buffer, filename);
 	    //write(0, 0, "Saved", TB_YELLOW);
 	    screen_present();
 	    needs_redraw = true;
 	    break;
-	}
 	case Key_Enter:
 	case Key_Enter2:
 	    if(inserter == curr_row->begin() && curr_row->size() >= 1) {
@@ -190,7 +189,7 @@ int main(int argc, char **argv)
 	    screen_present();
 	    break;
 	case Key_Backspace:
-	case Key_Backspace2: {
+	case Key_Backspace2:
 	    if(inserter != curr_row->begin()) {
 		// If line isn't empty, just remove the character
 		inserter = curr_row->erase(std::prev(inserter));
@@ -218,7 +217,6 @@ int main(int argc, char **argv)
 	    set_cursor(cursor_x, cursor_y);
 	    screen_present();
 	    break;
-	}
 	case Key_Right:
 	    if(inserter != curr_row->end()) {
 		// Go right as long as there is text left to go over
@@ -276,22 +274,22 @@ int main(int argc, char **argv)
 	    break;
 	}
 	case Key_Tab:
-	    curr_row->insert(inserter, TabSize, ' ');
+	    inserter = curr_row->insert(inserter, TabSize, ' ');
+	    std::advance(inserter, 4);
 	    cursor_x += TabSize;
 	    screen_clear();
 	    draw(buffer);
 	    set_cursor(cursor_x, cursor_y);
 	    screen_present();
 	    break;
-	default: {
+	default:
 	    inserter = std::next(curr_row->insert(inserter, input));
 	    ++cursor_x;
 	    screen_clear();
 	    draw(buffer);
 	    set_cursor(cursor_x, cursor_y);
 	    screen_present();
-	}
-	}
+   	}
     }
 
     return 0;
