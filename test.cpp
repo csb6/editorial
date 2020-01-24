@@ -13,6 +13,12 @@ int main(int argc, char **argv)
       std::cout << "no way\n";
     }
   }
-
+  
+  switch(a) {
+    case 'f': 
+      break;
+    default:
+      std::cout << "Not f\n";
+  }
   return 0;
 }

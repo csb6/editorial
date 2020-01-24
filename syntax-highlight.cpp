@@ -1,6 +1,8 @@
 #include <string_view>
 #include "syntax-highlight.h"
 
+/**Checks if the text on the screen, going left to right starting at a
+   given coordinate, matches the content of the given target text*/
 static bool match(int col, int row, std::string_view target)
 {
     const int width = screen_width();
@@ -12,6 +14,8 @@ static bool match(int col, int row, std::string_view target)
     return true;
 }
 
+/**Highlights length number of characters onscreen with the given
+   foreground color; bounds checks to stay within current screen size*/
 static void highlight(int col, int row, int length, Color fg)
 {
     const int width = screen_width();
@@ -26,6 +30,8 @@ static void highlight(int col, int row, int length, Color fg)
     }
 }
 
+/**If the given text matches the onscreen text starting at a given point,
+   the matching text is highlighted onscreen*/
 static bool highlight_match(int col, int row, std::string_view target, Color fg)
 {
     if(match(col, row, target)) {
@@ -35,8 +41,11 @@ static bool highlight_match(int col, int row, std::string_view target, Color fg)
     return false;
 }
 
+/**Default highlighting mode; highlights nothing*/
 void text_mode(int, int) {}
 
+/**Highlights some features markdown files, including '*', '#', and
+   inline code */
 void markdown_mode(int start_row, int end_row)
 {
     bool in_inline_code = false;
@@ -64,6 +73,8 @@ void markdown_mode(int start_row, int end_row)
     }
 }
 
+/**Highlights some of the common keywords and types of C++, as well as
+   highlights the entire text within string/character literals*/
 void cpp_mode(int start_row, int end_row)
 {
     const int width = screen_width();
@@ -82,22 +93,38 @@ void cpp_mode(int start_row, int end_row)
 		}
 		break;
 	    case '\'':
-		set_cell_color(col, row, StringColor);
-		in_char = !in_char;
+		if(!in_string) {
+		    set_cell_color(col, row, StringColor);
+		    in_char = !in_char;
+		}
 		break;
 	    case '"':
-		set_cell_color(col, row, StringColor);
-		in_string = !in_string;
+		if(!in_char) {
+		    set_cell_color(col, row, StringColor);
+		    in_string = !in_string;
+		}
 		break;
 	    case 'b':
 		if(highlight_match(col, row, "bool", TypeColor)) {
 		    col += 4;
+		    continue;
+		} else if(highlight_match(col, row, "break", KeywordColor)) {
+		    col += 5;
 		    continue;
 		}
 		break;
 	    case 'c':
 		if(highlight_match(col, row, "char", TypeColor)) {
 		    col += 4;
+		    continue;
+		} else if(highlight_match(col, row, "case", KeywordColor)) {
+		    col += 4;
+		    continue;
+		}
+		break;
+	    case 'd':
+		if(highlight_match(col, row, "default", KeywordColor)) {
+		    col += 7;
 		    continue;
 		}
 		break;
@@ -125,6 +152,12 @@ void cpp_mode(int start_row, int end_row)
 	    case 'r':
 		if(highlight_match(col, row, "return", KeywordColor)) {
 		    col += 6;
+		    continue;
+		}
+		break;
+	    case 's':
+		if(highlight_match(col, row, "switch", KeywordColor)) {
+		    col += 5;
 		    continue;
 		}
 		break;

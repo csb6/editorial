@@ -85,6 +85,8 @@ int main(int argc, char **argv)
     }
     text_buffer_t buffer{load(filename)};
     {
+	/* Open the syntax-highlighting mode appropriate for the
+	   file extension of the opened file */ 
 	std::string_view name(filename);
 	if(name.size() >= 3 && name.substr(name.size()-3) == ".md")
 	    highlight_mode = markdown_mode;

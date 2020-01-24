@@ -2,8 +2,8 @@
 #define SCREEN_CURSES_H
 
 enum class Color : char {
-  Red = 1, Green = 2, Yellow = 3, Blue = 4,
-  Magenta = 5, Cyan = 6, White = 7
+    Red = 1, Green = 2, Yellow = 3, Blue = 4,
+    Magenta = 5, Cyan = 6, White = 7, Default = 8
 };
 
 constexpr int Key_Tab = '\t';
@@ -31,8 +31,8 @@ void screen_present();
 void screen_present_resize();
 int screen_get(int x, int y);
 int get_ch();
-void set_cell(int x, int y, unsigned int ch, Color fg = Color::White);
-void write(int x, int y, const char *text, Color fg = Color::White);
+void set_cell(int x, int y, unsigned int ch, Color fg = Color::Default);
+void write(int x, int y, const char *text, Color fg = Color::Default);
 void set_cell_color(int x, int y, Color fg);
 void set_cursor(int x, int y);
 constexpr int ctrl(int c) { return c & 0x1f; }

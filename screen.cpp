@@ -2,6 +2,17 @@
 #include "screen.h"
 #include <stdexcept>
 
+#if (NCURSES_VERSION_MAJOR >= 4 && NCURSES_VERSION_MAJOR >= 1)
+  //Should be virtually all NCurses versions
+  constexpr int DefaultColorCode = -1;
+  constexpr int DefaultBackgroundCode = -1;
+#else
+  // Older versions don't support the default color functions
+  constexpr int DefaultColorCode = COLOR_WHITE;
+  constexpr int DefaultBackgroundCode = COLOR_BLACK;
+  void use_default_colors() {}
+#endif
+
 Screen::Screen()
 {
     // Character-at-a-time input, no echoing
@@ -13,13 +24,15 @@ Screen::Screen()
     if(!has_colors())
 	throw std::logic_error("Terminal doesn't support color");
     start_color();
-    init_pair((short)Color::Red, COLOR_RED, COLOR_BLACK);
-    init_pair((short)Color::Green, COLOR_GREEN, COLOR_BLACK);
-    init_pair((short)Color::Yellow, COLOR_YELLOW, COLOR_BLACK);
-    init_pair((short)Color::Blue, COLOR_BLUE, COLOR_BLACK);
-    init_pair((short)Color::Magenta, COLOR_MAGENTA, COLOR_BLACK);
-    init_pair((short)Color::Cyan, COLOR_CYAN, COLOR_BLACK);
-    init_pair((short)Color::White, COLOR_WHITE, COLOR_BLACK);
+    use_default_colors();
+    init_pair((short)Color::Red, COLOR_RED, DefaultBackgroundCode);
+    init_pair((short)Color::Green, COLOR_GREEN, DefaultBackgroundCode);
+    init_pair((short)Color::Yellow, COLOR_YELLOW, DefaultBackgroundCode);
+    init_pair((short)Color::Blue, COLOR_BLUE, DefaultBackgroundCode);
+    init_pair((short)Color::Magenta, COLOR_MAGENTA, DefaultBackgroundCode);
+    init_pair((short)Color::Cyan, COLOR_CYAN, DefaultBackgroundCode);
+    init_pair((short)Color::White, COLOR_WHITE, DefaultBackgroundCode);
+    init_pair((short)Color::Default, DefaultColorCode, DefaultBackgroundCode);
 }
 
 Screen::~Screen() { endwin(); }
