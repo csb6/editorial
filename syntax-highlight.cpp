@@ -26,6 +26,17 @@ static void highlight(int col, int row, int length, Color fg)
     }
 }
 
+static bool highlight_match(int col, int row, std::string_view target, Color fg)
+{
+    if(match(col, row, target)) {
+	highlight(col, row, target.size(), fg);
+	return true;
+    }
+    return false;
+}
+
+void text_mode(int, int) {}
+
 void markdown_mode(int start_row, int end_row)
 {
     bool in_inline_code = false;
@@ -60,52 +71,61 @@ void cpp_mode(int start_row, int end_row)
     bool in_char = false;
 
     for(int row = start_row; row < end_row; ++row) {
-	for(int col = 0; col < width; ++col) {
+	int col = 0;
+	while(col < width) {
 	    auto character = screen_get(col, row);
 	    switch(character) {
 	    case '#':
-		if(match(col, row, "#include")) {
-		    highlight(col, row, 8, PreprocessorColor);
+		if(highlight_match(col, row, "#include", PreprocessorColor)) {
+		    col += 8;
+		    continue;
 		}
 		break;
 	    case '\'':
 		set_cell_color(col, row, StringColor);
 		in_char = !in_char;
-		continue;
+		break;
 	    case '"':
 		set_cell_color(col, row, StringColor);
 		in_string = !in_string;
-		continue;
+		break;
 	    case 'b':
-		if(match(col, row, "bool")) {
-		    highlight(col, row, 4, TypeColor);
+		if(highlight_match(col, row, "bool", TypeColor)) {
+		    col += 4;
+		    continue;
 		}
 		break;
 	    case 'c':
-		if(match(col, row, "char")) {
-		    highlight(col, row, 4, TypeColor);
+		if(highlight_match(col, row, "char", TypeColor)) {
+		    col += 4;
+		    continue;
 		}
 		break;
 	    case 'e':
-		if(match(col, row, "else")) {
-		    highlight(col, row, 4, KeywordColor);
+		if(highlight_match(col, row, "else", KeywordColor)) {
+		    col += 4;
+		    continue;
 		}
 		break;
 	    case 'f':
-		if(match(col, row, "for")) {
-		    highlight(col, row, 3, KeywordColor);
+		if(highlight_match(col, row, "for", KeywordColor)) {
+		    col += 3;
+		    continue;
 		}
 		break;
 	    case 'i':
-		if(match(col, row, "int")) {
-		    highlight(col, row, 3, TypeColor);
-		} else if(match(col, row, "if")) {
-		    highlight(col, row, 2, KeywordColor);
+		if(highlight_match(col, row, "int", TypeColor)) {
+		    col += 3;
+		    continue;
+		} else if(highlight_match(col, row, "if", KeywordColor)) {
+		    col += 2;
+		    continue;
 		}
 		break;
 	    case 'r':
-		if(match(col, row, "return")) {
-		    highlight(col, row, 6, KeywordColor);
+		if(highlight_match(col, row, "return", KeywordColor)) {
+		    col += 6;
+		    continue;
 		}
 		break;
 	    }
@@ -113,6 +133,7 @@ void cpp_mode(int start_row, int end_row)
 	    if(in_string || in_char) {
 		set_cell_color(col, row, StringColor);
 	    }
+	    ++col;
 	}
     }
 }

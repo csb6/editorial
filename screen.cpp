@@ -76,8 +76,8 @@ void write(int x, int y, const char *text, Color fg)
 
 void set_cell_color(int x, int y, Color fg)
 {
-    UsingColorPair curr_color(fg);
     auto character = mvinch(y, x);
+    UsingColorPair curr_color(fg);
     if((character & A_COLOR) != curr_color.get()) {
         mvaddch(y, x, character & A_CHARTEXT);
     }

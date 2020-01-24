@@ -1,6 +1,5 @@
 # Editorial
 
-
 A text editor for your terminal, written in C++17.
 
 **Please note:** This is probably not a replacement for your

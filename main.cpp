@@ -17,17 +17,17 @@ void(*highlight_mode)(int,int);
 
 /**Writes as much of the given char grid to the screen as will fit;
    no line-wrapping (lines will be cut off when at edge)*/
-void draw(text_buffer_t::const_iterator start,
-	  text_buffer_t::const_iterator end, int startRow, int endRow)
+void draw(const text_buffer_t &buffer)
 {
-    int col = 0;
-    int row = startRow;
     const int width = screen_width();
     const int height = screen_height();
-    for(auto row_buf = start; row_buf != end; ++row_buf) {
+    int col = 0;
+    int row = 0;
+
+    for(const auto &row_buf : buffer) {
 	if(row >= height) break;
 	col = 0;
-	for(char letter : *row_buf) {
+	for(char letter : row_buf) {
 	    if(col >= width) break;
 	    else if(std::isspace(letter)) letter = ' ';
 	    set_cell(col, row, letter);
@@ -35,12 +35,7 @@ void draw(text_buffer_t::const_iterator start,
 	}
 	++row;
     }
-    highlight_mode(startRow, endRow);
-}
-
-void draw(const text_buffer_t &buffer)
-{
-    draw(buffer.begin(), buffer.end(), 0, screen_height());
+    highlight_mode(0, height);
 }
 
 /**Creates a 2D grid of characters representing a given text file*/
@@ -94,7 +89,9 @@ int main(int argc, char **argv)
 	if(name.size() >= 3 && name.substr(name.size()-3) == ".md")
 	    highlight_mode = markdown_mode;
 	else if(name.size() >= 4 && name.substr(name.size()-4) == ".cpp")
-	  highlight_mode = cpp_mode;
+	    highlight_mode = cpp_mode;
+	else
+	    highlight_mode = text_mode;
     }
 
     Screen window;
@@ -254,9 +251,8 @@ int main(int argc, char **argv)
 	}
 	case Key_Tab:
 	    inserter = curr_row->insert(inserter, TabSize, ' ');
-	    std::advance(inserter, 4);
+	    std::advance(inserter, TabSize);
 	    cursor_x += TabSize;
-	    screen_clear();
 	    draw(buffer);
 	    set_cursor(cursor_x, cursor_y);
 	    screen_present();
@@ -264,7 +260,6 @@ int main(int argc, char **argv)
 	default:
 	    inserter = std::next(curr_row->insert(inserter, input));
 	    ++cursor_x;
-	    screen_clear();
 	    draw(buffer);
 	    set_cursor(cursor_x, cursor_y);
 	    screen_present();

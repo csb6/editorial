@@ -1,4 +1,5 @@
 *~
+.#*
 *#
 termbox/*
 libtermbox.a
