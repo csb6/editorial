@@ -6,6 +6,7 @@
 [ ] Implement undo-redo functionality (maybe can do with macros??)
 [ ] Implement macro system that lets you record/play back keystrokes*/
 #include <fstream>
+#include <cstdio>
 #include <list>
 #include <vector>
 #include <algorithm>
@@ -18,6 +19,31 @@ constexpr std::size_t TabSize = 4; // in spaces
 
 using text_row_t = std::vector<char>;
 using text_buffer_t = std::list<text_row_t>;
+
+enum class Action : char {
+    Insert, Delete
+};
+
+struct Event {
+    std::size_t pos;
+    std::size_t magnitude;
+    const char *text;
+    Action type;
+};
+
+class UndoQueue {
+private:
+    std::vector<Event> m_events;
+public:
+    UndoQueue() { m_events.reserve(50); }
+    void push_back(Event next)
+    {
+	if(m_events.size() >= 50) {
+	    m_events.erase(m_events.begin());
+	}
+	m_events.push_back(next);
+    }
+};
 
 // The current syntax highlighting mode; set when loading a file
 void(*highlight_mode)(int,int);
@@ -86,10 +112,11 @@ void save(const text_buffer_t &buffer, const char *filename)
 
 int main(int argc, char **argv)
 {
-    const char *filename = "README.md";
-    if(argc > 1) {
-	filename = argv[1];
+    if(argc < 2) {
+	std::printf("Usage: ./editorial </path/to/file>\n");
+	return 1;
     }
+    const char *filename = argv[1];
     text_buffer_t buffer{load(filename)};
     {
 	/* Open the syntax-highlighting mode appropriate for the

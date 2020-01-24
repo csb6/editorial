@@ -8,9 +8,9 @@ you find it interesting, at least from a programming standpoint.
 
 ## Features
 
-- Syntax highlighting, with simple way of adding new highlighting
-  rules for new languages
-- Basic file saving/loading
+- Syntax highlighting for C++ and Markdown, with simple method for
+  adding new languages
+- File saving/loading, with editing occurring in-memory
 - Very simple implementation; under 500 lines of C++ code
 - Low CPU and memory usage
 - Works on any terminal supported by ncurses (essentially anything)
@@ -29,8 +29,11 @@ you find it interesting, at least from a programming standpoint.
 
 ## Installation
 
-Just run `./build.sh`. Make sure that you have ncurses installed and
-in a location that your compiler can find. Most Unix-like systems should
-have an ncurses shared library installed, but on Windows you will most
-likely have to install PDCurses, which implements the same interface as
-ncurses.
+Just run `./build.sh`.
+
+The build script is set up to use `clang++` as the compiler, but you can
+easily change this in the build script. Also, be sure that you have
+ncurses installed and in a location that your compiler can find. Most
+Unix-like systems should already have an ncurses shared library, but
+on Windows you will most likely have to install PDCurses, which implements
+the same interface as ncurses on Windows platforms.

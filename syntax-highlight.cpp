@@ -73,12 +73,11 @@ void markdown_mode(int start_row, int end_row)
 }
 
 /**Highlights some of the common keywords and types of C++, as well as
-   highlights the entire text within string/character literals*/
+   the text within string/character literals*/
 void cpp_mode(int start_row, int end_row)
 {
     const int width = screen_width();
     bool in_string = false;
-    bool in_char = false;
 
     for(int row = start_row; row < end_row; ++row) {
 	int col = 0;
@@ -89,11 +88,7 @@ void cpp_mode(int start_row, int end_row)
 		in_string = !in_string;
 		set_cell_color(col++, row, StringColor);
 		continue;
-	    } else if(character == '\'') {
-		in_char = !in_char;
-		set_cell_color(col++, row, StringColor);
-		continue;
-	    } else if(in_string || in_char) {
+	    } else if(in_string) {
 		set_cell_color(col++, row, StringColor);
 		continue;
 	    }
@@ -102,6 +97,11 @@ void cpp_mode(int start_row, int end_row)
 	    case '#':
 		HIGHLIGHT_MATCH("#include", PreprocessorColor);
 		HIGHLIGHT_MATCH("#define", PreprocessorColor);
+		break;
+	    case '\'':
+		set_cell_color(col++, row, StringColor);
+		set_cell_color(col++, row, StringColor);
+		set_cell_color(col++, row, StringColor);
 		break;
 	    case 'b':
 		HIGHLIGHT_MATCH("bool", TypeColor);

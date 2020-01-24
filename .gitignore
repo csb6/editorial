@@ -3,5 +3,6 @@
 *#
 termbox/*
 libtermbox.a
-editor-min
+editorial
 termbox.h
+long-file.txt
