@@ -1,4 +1,5 @@
 #include <string_view>
+#include <string> // for std::char_traits
 #include "syntax-highlight.h"
 
 /**Checks if the text on the screen, going left to right starting at a
@@ -31,14 +32,12 @@ static void highlight(int col, int row, int length, Color fg)
 }
 
 /**If the given text matches the onscreen text starting at a given point,
-   the matching text is highlighted onscreen*/
-static bool highlight_match(int col, int row, std::string_view target, Color fg)
-{
-    if(match(col, row, target)) {
-	highlight(col, row, target.size(), fg);
-	return true;
-    }
-    return false;
+   highlight the matching text onscreen*/
+#define HIGHLIGHT_MATCH(T, C) \
+if(match(col, row, T)) { \
+    highlight(col, row, std::char_traits<char>::length(T), C); \
+    col += std::char_traits<char>::length(T); \
+    continue; \
 }
 
 /**Default highlighting mode; highlights nothing*/
@@ -85,87 +84,69 @@ void cpp_mode(int start_row, int end_row)
 	int col = 0;
 	while(col < width) {
 	    auto character = screen_get(col, row);
+	    // Handle string highlighting
+	    if(character == '"') {
+		in_string = !in_string;
+		set_cell_color(col++, row, StringColor);
+		continue;
+	    } else if(character == '\'') {
+		in_char = !in_char;
+		set_cell_color(col++, row, StringColor);
+		continue;
+	    } else if(in_string || in_char) {
+		set_cell_color(col++, row, StringColor);
+		continue;
+	    }
+	    // Handle all other highlighting
 	    switch(character) {
 	    case '#':
-		if(highlight_match(col, row, "#include", PreprocessorColor)) {
-		    col += 8;
-		    continue;
-		}
-		break;
-	    case '\'':
-		if(!in_string) {
-		    set_cell_color(col, row, StringColor);
-		    in_char = !in_char;
-		}
-		break;
-	    case '"':
-		if(!in_char) {
-		    set_cell_color(col, row, StringColor);
-		    in_string = !in_string;
-		}
+		HIGHLIGHT_MATCH("#include", PreprocessorColor);
+		HIGHLIGHT_MATCH("#define", PreprocessorColor);
 		break;
 	    case 'b':
-		if(highlight_match(col, row, "bool", TypeColor)) {
-		    col += 4;
-		    continue;
-		} else if(highlight_match(col, row, "break", KeywordColor)) {
-		    col += 5;
-		    continue;
-		}
+		HIGHLIGHT_MATCH("bool", TypeColor);
+		HIGHLIGHT_MATCH("break", KeywordColor);
 		break;
 	    case 'c':
-		if(highlight_match(col, row, "char", TypeColor)) {
-		    col += 4;
-		    continue;
-		} else if(highlight_match(col, row, "case", KeywordColor)) {
-		    col += 4;
-		    continue;
-		}
+		HIGHLIGHT_MATCH("char", TypeColor);
+		HIGHLIGHT_MATCH("case", KeywordColor);
+		HIGHLIGHT_MATCH("const", TypeColor);
+		HIGHLIGHT_MATCH("class", KeywordColor);
 		break;
 	    case 'd':
-		if(highlight_match(col, row, "default", KeywordColor)) {
-		    col += 7;
-		    continue;
-		}
+		HIGHLIGHT_MATCH("default", KeywordColor);
+		HIGHLIGHT_MATCH("delete", KeywordColor);
 		break;
 	    case 'e':
-		if(highlight_match(col, row, "else", KeywordColor)) {
-		    col += 4;
-		    continue;
-		}
+		HIGHLIGHT_MATCH("else", KeywordColor);
+		HIGHLIGHT_MATCH("enum", KeywordColor);
 		break;
 	    case 'f':
-		if(highlight_match(col, row, "for", KeywordColor)) {
-		    col += 3;
-		    continue;
-		}
+		HIGHLIGHT_MATCH("for", KeywordColor);
+		HIGHLIGHT_MATCH("false", KeywordColor);
 		break;
 	    case 'i':
-		if(highlight_match(col, row, "int", TypeColor)) {
-		    col += 3;
-		    continue;
-		} else if(highlight_match(col, row, "if", KeywordColor)) {
-		    col += 2;
-		    continue;
-		}
+		HIGHLIGHT_MATCH("int", TypeColor);
+		HIGHLIGHT_MATCH("if", KeywordColor);
+		break;
+	    case 'n':
+		HIGHLIGHT_MATCH("new", KeywordColor);
+		break;
+	    case 'p':
+		HIGHLIGHT_MATCH("public:", KeywordColor);
+		HIGHLIGHT_MATCH("private:", KeywordColor);
 		break;
 	    case 'r':
-		if(highlight_match(col, row, "return", KeywordColor)) {
-		    col += 6;
-		    continue;
-		}
+		HIGHLIGHT_MATCH("return", KeywordColor);
 		break;
 	    case 's':
-		if(highlight_match(col, row, "switch", KeywordColor)) {
-		    col += 5;
-		    continue;
-		}
+		HIGHLIGHT_MATCH("switch", KeywordColor);
+		break;
+	    case 't':
+		HIGHLIGHT_MATCH("true", KeywordColor);
 		break;
 	    }
 
-	    if(in_string || in_char) {
-		set_cell_color(col, row, StringColor);
-	    }
 	    ++col;
 	}
     }

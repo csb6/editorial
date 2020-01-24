@@ -1,3 +1,10 @@
+/*TODO:
+[X] Fix highlighting so keywords aren't highlighted when typing inside a string
+[ ] Add more C++ keywords, possibly more Markdown highlighting too
+[X] Find more concise way to write highlighting code (maybe code gen?)
+[ ] Consider using std::filebuf to represent the file in-memory
+[ ] Implement undo-redo functionality (maybe can do with macros??)
+[ ] Implement macro system that lets you record/play back keystrokes*/
 #include <fstream>
 #include <list>
 #include <vector>
@@ -86,7 +93,7 @@ int main(int argc, char **argv)
     text_buffer_t buffer{load(filename)};
     {
 	/* Open the syntax-highlighting mode appropriate for the
-	   file extension of the opened file */ 
+	   file extension of the opened file */
 	std::string_view name(filename);
 	if(name.size() >= 3 && name.substr(name.size()-3) == ".md")
 	    highlight_mode = markdown_mode;
