@@ -26,7 +26,7 @@ enum class Action : char {
 
 struct Event {
     std::size_t pos;
-    std::size_t magnitude;
+    std::size_t length;
     const char *text;
     Action type;
 };
@@ -54,19 +54,20 @@ void draw(const text_buffer_t &buffer)
 {
     const int width = screen_width();
     const int height = screen_height();
-    int col = 0;
     int row = 0;
-
-    for(const auto &row_buf : buffer) {
-	if(row >= height) break;
-	col = 0;
-	for(char letter : row_buf) {
-	    if(col >= width) break;
-	    else if(std::isspace(letter)) letter = ' ';
-	    set_cell(col, row, letter);
-	    ++col;
+    auto curr_row = buffer.begin();
+    while(row < height && curr_row != buffer.end()) {
+	int col = 0;
+	auto letter = curr_row->begin();
+	while(col < width && letter != curr_row->end()) {
+	    if(std::isspace(*letter))
+		set_cell(col++, row, *letter);
+	    else
+		set_cell(col++, row, *letter);
+	    ++letter;
 	}
 	++row;
+	++curr_row;
     }
     highlight_mode(0, height);
 }

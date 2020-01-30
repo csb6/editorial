@@ -11,7 +11,7 @@ you find it interesting, at least from a programming standpoint.
 - Syntax highlighting for C++ and Markdown, with simple method for
   adding new languages
 - File saving/loading, with editing occurring in-memory
-- Very simple implementation; under 500 lines of C++ code
+- Very simple implementation; around 500 lines of C++ code
 - Low CPU and memory usage
 - Works on any terminal supported by ncurses (essentially anything)
 

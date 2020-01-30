@@ -2,7 +2,7 @@
 #include "screen.h"
 #include <stdexcept>
 
-#if (NCURSES_VERSION_MAJOR >= 4 && NCURSES_VERSION_MAJOR >= 1)
+#if (NCURSES_VERSION_MAJOR >= 4 && NCURSES_VERSION_MINOR >= 1)
   //Should be virtually all NCurses versions
   constexpr int DefaultColorCode = -1;
   constexpr int DefaultBackgroundCode = -1;
