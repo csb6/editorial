@@ -43,7 +43,7 @@ if(match(col, row, T)) { \
 /**Default highlighting mode; highlights nothing*/
 void text_mode(int, int) {}
 
-/**Highlights some features markdown files, including '*', '#', and
+/**Highlights some features of markdown files, including '*', '#', and
    inline code */
 void markdown_mode(int, int end_row)
 {
@@ -79,12 +79,13 @@ void cpp_mode(int start_row, int end_row)
 {
     const int width = screen_width();
     bool in_string = false;
-    // The value of start_row in the prior call
+    // The index in the buffer of the unclosed '"' above current screen
     static int last_start_row = 0;
-    // The value of in_string at the end of the prior call
+    // True if there is an unclosed '"' above current screen
     static bool last_in_string = false;
     if(last_start_row < start_row)
-        // Only worry about any open strings if we've scrolled down
+        /*Only worry about any previously open strings if we've scrolled down
+          them off the screen*/
         in_string = last_in_string;
 
     for(int row = 0; row < end_row; ++row) {
@@ -158,7 +159,11 @@ void cpp_mode(int start_row, int end_row)
 	    ++col;
 	}
     }
-    
-    last_start_row = start_row;
-    last_in_string = in_string;
+
+    if(start_row <= last_start_row) {
+        /*Only try to close the unclosed quote if the user
+          has moved above its row in the buffer*/
+        last_start_row = start_row;
+        last_in_string = in_string;
+    }
 }
