@@ -11,8 +11,8 @@
 #include <vector>
 #include <algorithm>
 #include <iterator>
-#include <string_view>
 #include <string>
+#include <regex>
 #include "screen.h"
 #include "syntax-highlight.h"
 
@@ -181,12 +181,13 @@ int main(int argc, char **argv)
     const char *filename = argv[1];
     text_buffer_t buffer{load(filename)};
     {
+        const std::regex cpp_file("^.+\\.(cpp|h|hpp|cxx)$");
+        const std::regex markdown_file("^.+\\.md$");
 	/* Open the syntax-highlighting mode appropriate for the
 	   file extension of the opened file */
-	std::string_view name(filename);
-	if(name.size() >= 3 && name.substr(name.size()-3) == ".md")
+	if(std::regex_match(filename, markdown_file))
 	    highlight_mode = markdown_mode;
-	else if(name.size() >= 4 && name.substr(name.size()-4) == ".cpp")
+	else if(std::regex_match(filename, cpp_file))
 	    highlight_mode = cpp_mode;
 	else
 	    highlight_mode = text_mode;

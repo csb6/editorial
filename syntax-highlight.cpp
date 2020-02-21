@@ -127,10 +127,10 @@ void cpp_mode(int start_row, int end_row)
 	    case 'c':
 		HIGHLIGHT_MATCH("char", TypeColor);
 		HIGHLIGHT_MATCH("case", KeywordColor);
+		HIGHLIGHT_MATCH("constexpr", TypeColor);
 		HIGHLIGHT_MATCH("const", TypeColor);
                 HIGHLIGHT_MATCH("continue", KeywordColor);
 		HIGHLIGHT_MATCH("class", KeywordColor);
-		HIGHLIGHT_MATCH("constexpr", TypeColor);
                 HIGHLIGHT_MATCH("catch", KeywordColor);
 		break;
 	    case 'd':

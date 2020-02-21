@@ -8,12 +8,12 @@ you find it interesting, at least from a programming standpoint.
 
 ## Features
 
-- Syntax highlighting for C++ and Markdown, with simple method for
-  adding new languages
+- Syntax highlighting for C++ and Markdown activated by the file extensions, with
+  an easy way to add new languages/file types
 - Simple scrolling using up and down keys
 - File saving/loading, with editing occurring in-memory
-- Very simple implementation; around 500 lines of C++ code
-- Low CPU and memory usage
+- Very simple implementation; around 600 lines of C++ code
+- Extremely low CPU and memory usage
 - Works on any terminal supported by ncurses (essentially anything)
 
 ## Key Bindings
