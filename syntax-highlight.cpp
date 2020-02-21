@@ -107,11 +107,19 @@ void cpp_mode(int start_row, int end_row)
 		HIGHLIGHT_MATCH("#include", PreprocessorColor);
 		HIGHLIGHT_MATCH("#define", PreprocessorColor);
 		break;
+            case '+': case '-': case '*': case '/':
+            case '=': case '!': case '<': case '>':
+            case '&': case '|': case '^': case '~':
+                set_cell_color(col, row, KeywordColor);
+                break;
 	    case '\'':
 		set_cell_color(col++, row, StringColor);
 		set_cell_color(col++, row, StringColor);
 		set_cell_color(col++, row, StringColor);
 		break;
+            case 'a':
+                HIGHLIGHT_MATCH("auto", TypeColor);
+                break;
 	    case 'b':
 		HIGHLIGHT_MATCH("bool", TypeColor);
 		HIGHLIGHT_MATCH("break", KeywordColor);
@@ -120,11 +128,15 @@ void cpp_mode(int start_row, int end_row)
 		HIGHLIGHT_MATCH("char", TypeColor);
 		HIGHLIGHT_MATCH("case", KeywordColor);
 		HIGHLIGHT_MATCH("const", TypeColor);
+                HIGHLIGHT_MATCH("continue", KeywordColor);
 		HIGHLIGHT_MATCH("class", KeywordColor);
+		HIGHLIGHT_MATCH("constexpr", TypeColor);
+                HIGHLIGHT_MATCH("catch", KeywordColor);
 		break;
 	    case 'd':
 		HIGHLIGHT_MATCH("default", KeywordColor);
 		HIGHLIGHT_MATCH("delete", KeywordColor);
+                HIGHLIGHT_MATCH("do", KeywordColor);
 		break;
 	    case 'e':
 		HIGHLIGHT_MATCH("else", KeywordColor);
@@ -153,7 +165,11 @@ void cpp_mode(int start_row, int end_row)
 		break;
 	    case 't':
 		HIGHLIGHT_MATCH("true", KeywordColor);
+                HIGHLIGHT_MATCH("try", KeywordColor);
 		break;
+            case 'w':
+                HIGHLIGHT_MATCH("while", KeywordColor);
+                break;
 	    }
 
 	    ++col;
