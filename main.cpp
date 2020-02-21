@@ -114,6 +114,8 @@ void draw(const text_buffer_t &buffer, int start_row = 0)
     const int width = screen_width();
     const int height = screen_height();
     int row = 0;
+    /* Starting drawing using content starting at the row currently at
+       The top of the screen */
     auto curr_row = std::next(buffer.begin(), start_row);
     while(row < height && curr_row != buffer.end()) {
 	int col = 0;
@@ -196,6 +198,7 @@ int main(int argc, char **argv)
     auto inserter = curr_row->begin();
     int cursor_x = 0;
     int cursor_y = 0;
+    // The index of the row in the buffer at the top of the screen
     int top_visible_row = 0;
     draw(buffer);
     set_cursor(cursor_x, cursor_y);
@@ -324,14 +327,14 @@ int main(int argc, char **argv)
 	    break;
 	case Key_Up: {
 	    if(curr_row == buffer.begin())
-		break;
+                break;
 	    unsigned long x_pos = std::distance(curr_row->begin(), inserter);
 	    --curr_row;
 	    x_pos = std::min(x_pos, curr_row->size());
 	    inserter = std::next(curr_row->begin(), x_pos);
 	    cursor_x = x_pos;
 	    --cursor_y;
-            if(cursor_y <= -1 && curr_row != buffer.begin()) {
+            if(cursor_y == -1) {
                 // If going offscreen, scroll upwards
                 --top_visible_row;
                 cursor_y = 0;
@@ -351,7 +354,7 @@ int main(int argc, char **argv)
 	    inserter = std::next(curr_row->begin(), x_pos);
 	    cursor_x = x_pos;
 	    ++cursor_y;
-            if(cursor_y >= screen_height() && curr_row != buffer.end()) {
+            if(cursor_y == screen_height() && curr_row != buffer.end()) {
                 // If going offscreen, scroll downwards
                 ++top_visible_row;
                 cursor_y = screen_height() - 1;

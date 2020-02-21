@@ -10,6 +10,7 @@ you find it interesting, at least from a programming standpoint.
 
 - Syntax highlighting for C++ and Markdown, with simple method for
   adding new languages
+- Simple scrolling using up and down keys
 - File saving/loading, with editing occurring in-memory
 - Very simple implementation; around 500 lines of C++ code
 - Low CPU and memory usage

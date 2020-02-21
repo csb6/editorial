@@ -45,11 +45,11 @@ void text_mode(int, int) {}
 
 /**Highlights some features markdown files, including '*', '#', and
    inline code */
-void markdown_mode(int start_row, int end_row)
+void markdown_mode(int, int end_row)
 {
     bool in_inline_code = false;
     const int width = screen_width();
-    for(int row = start_row; row < end_row; ++row) {
+    for(int row = 0; row < end_row; ++row) {
 	for(int col = 0; col < width; ++col) {
 	    auto character = screen_get(col, row);
 	    switch(character) {
@@ -73,7 +73,8 @@ void markdown_mode(int start_row, int end_row)
 }
 
 /**Highlights some of the common keywords and types of C++, as well as
-   the text within string/character literals*/
+   the text within string/character literals. start_row is the index of
+   the row in the buffer at the top of the screen*/
 void cpp_mode(int start_row, int end_row)
 {
     const int width = screen_width();
