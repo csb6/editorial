@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <iterator>
 #include <string_view>
+#include <string>
 #include "screen.h"
 #include "syntax-highlight.h"
 
@@ -21,27 +22,85 @@ using text_row_t = std::vector<char>;
 using text_buffer_t = std::list<text_row_t>;
 
 enum class Action : char {
-    Insert, Delete
+    Insert, Delete, Left, Right, Up, Down
 };
 
 struct Event {
     std::size_t pos;
+    Action type;
     std::size_t length;
     const char *text;
-    Action type;
 };
 
 class UndoQueue {
 private:
+    constexpr static std::size_t QueueSize = 50;
+    constexpr static std::size_t CacheSize = 2;
     std::vector<Event> m_events;
+    std::string m_letter_cache;
+    std::size_t m_cache_start = 0;
+    void flush_cache()
+    {
+	if(m_letter_cache.empty())
+	    return;
+
+	push_back({m_cache_start, Action::Insert,
+		   m_letter_cache.size(), m_letter_cache.c_str()});
+	m_letter_cache.clear();
+    }
 public:
-    UndoQueue() { m_events.reserve(50); }
+    UndoQueue() { m_events.reserve(QueueSize); }
+
+    ~UndoQueue()
+    {
+	/*std::ofstream log("log.txt");
+	for(const auto &event : m_events) {
+	    log << "Pos: " << event.pos
+		      << "\nAction Type: " << (short)event.type
+		      << "\nLength: " << (short)event.length << '\n';
+	    if(event.text != nullptr) {
+	        log << "Text: \"" << std::string(event.text) << "\"";
+	    }
+	    log << '\n' << std::endl;
+	    }*/
+    }
+
+    void erase(std::size_t pos)
+    {
+	push_back({pos, Action::Delete, 0, nullptr});
+    }
+
+    void insert(char letter, std::size_t pos)
+    {
+	m_letter_cache += letter;
+        if(m_letter_cache.size() >= CacheSize) {
+	    flush_cache();
+	} else if(m_letter_cache.size() == 1) {
+	    m_cache_start = pos;
+	}
+    }
+
+    /**Immediately pushes an event to the queue*/
     void push_back(Event next)
     {
-	if(m_events.size() >= 50) {
+	if(m_events.size() >= QueueSize) {
 	    m_events.erase(m_events.begin());
 	}
-	m_events.push_back(next);
+	switch(next.type) {
+	case Action::Delete:
+	    flush_cache();
+	case Action::Insert:
+	    // Add/delete a chunk of text
+	    m_events.push_back(next);
+	    break;
+	case Action::Left:
+	case Action::Right:
+	case Action::Up:
+	case Action::Down:
+	    // Done with adding chars to current text block
+	    flush_cache();
+	    break;
+	}   
     }
 };
 
@@ -132,6 +191,7 @@ int main(int argc, char **argv)
     }
 
     Screen window;
+    //UndoQueue history;
     auto curr_row = buffer.begin();
     auto inserter = curr_row->begin();
     int cursor_x = 0;
@@ -196,6 +256,7 @@ int main(int argc, char **argv)
 		cursor_x = 0;
 		++cursor_y;
 	    }
+	    //history.insert('\n', std::distance(buffer.begin(), curr_row));
 	    screen_clear();
 	    draw(buffer);
 	    set_cursor(cursor_x, cursor_y);
@@ -297,6 +358,7 @@ int main(int argc, char **argv)
 	default:
 	    inserter = std::next(curr_row->insert(inserter, input));
 	    ++cursor_x;
+	    //history.insert(input, std::distance(buffer.begin(), curr_row));
 	    draw(buffer);
 	    set_cursor(cursor_x, cursor_y);
 	    screen_present();

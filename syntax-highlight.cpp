@@ -78,6 +78,13 @@ void cpp_mode(int start_row, int end_row)
 {
     const int width = screen_width();
     bool in_string = false;
+    // The value of start_row in the prior call
+    static int last_start_row = 0;
+    // The value of in_string at the end of the prior call
+    static bool last_in_string = false;
+    if(last_start_row < start_row)
+        // Only worry about any open strings if we've scrolled down
+        in_string = last_in_string;
 
     for(int row = start_row; row < end_row; ++row) {
 	int col = 0;
@@ -150,4 +157,7 @@ void cpp_mode(int start_row, int end_row)
 	    ++col;
 	}
     }
+    
+    last_start_row = start_row;
+    last_in_string = in_string;
 }
