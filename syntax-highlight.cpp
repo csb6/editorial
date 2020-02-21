@@ -86,7 +86,7 @@ void cpp_mode(int start_row, int end_row)
         // Only worry about any open strings if we've scrolled down
         in_string = last_in_string;
 
-    for(int row = start_row; row < end_row; ++row) {
+    for(int row = 0; row < end_row; ++row) {
 	int col = 0;
 	while(col < width) {
 	    auto character = screen_get(col, row);

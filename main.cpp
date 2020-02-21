@@ -109,12 +109,12 @@ void(*highlight_mode)(int,int);
 
 /**Writes as much of the given char grid to the screen as will fit;
    no line-wrapping (lines will be cut off when at edge)*/
-void draw(const text_buffer_t &buffer)
+void draw(const text_buffer_t &buffer, int start_row = 0)
 {
     const int width = screen_width();
     const int height = screen_height();
     int row = 0;
-    auto curr_row = buffer.begin();
+    auto curr_row = std::next(buffer.begin(), start_row);
     while(row < height && curr_row != buffer.end()) {
 	int col = 0;
 	auto letter = curr_row->begin();
@@ -128,7 +128,7 @@ void draw(const text_buffer_t &buffer)
 	++row;
 	++curr_row;
     }
-    highlight_mode(0, height);
+    highlight_mode(start_row, height);
 }
 
 /**Creates a 2D grid of characters representing a given text file*/
@@ -196,6 +196,7 @@ int main(int argc, char **argv)
     auto inserter = curr_row->begin();
     int cursor_x = 0;
     int cursor_y = 0;
+    int top_visible_row = 0;
     draw(buffer);
     set_cursor(cursor_x, cursor_y);
     screen_present();
@@ -206,13 +207,13 @@ int main(int argc, char **argv)
     while(!done && (input = get_ch())) {
 	if(input == Key_Resize) {
 	    screen_clear();
-	    draw(buffer);
+	    draw(buffer, top_visible_row);
 	    set_cursor(cursor_x, cursor_y);
 	    screen_present_resize();
 	    continue;
 	} else if(needs_redraw) {
 	    screen_clear();
-	    draw(buffer);
+	    draw(buffer, top_visible_row);
 	    set_cursor(cursor_x, cursor_y);
 	    screen_present();
 	    needs_redraw = false;
@@ -258,7 +259,7 @@ int main(int argc, char **argv)
 	    }
 	    //history.insert('\n', std::distance(buffer.begin(), curr_row));
 	    screen_clear();
-	    draw(buffer);
+	    draw(buffer, top_visible_row);
 	    set_cursor(cursor_x, cursor_y);
 	    screen_present();
 	    break;
@@ -287,7 +288,7 @@ int main(int argc, char **argv)
 		cursor_x = curr_row->size();
 	    }
 	    screen_clear();
-	    draw(buffer);
+	    draw(buffer, top_visible_row);
 	    set_cursor(cursor_x, cursor_y);
 	    screen_present();
 	    break;
@@ -330,6 +331,13 @@ int main(int argc, char **argv)
 	    inserter = std::next(curr_row->begin(), x_pos);
 	    cursor_x = x_pos;
 	    --cursor_y;
+            if(cursor_y <= -1 && curr_row != buffer.begin()) {
+                // If going offscreen, scroll upwards
+                --top_visible_row;
+                cursor_y = 0;
+                screen_clear();
+                draw(buffer, top_visible_row);
+            }
 	    set_cursor(cursor_x, cursor_y);
 	    screen_present();
 	    break;
@@ -343,6 +351,13 @@ int main(int argc, char **argv)
 	    inserter = std::next(curr_row->begin(), x_pos);
 	    cursor_x = x_pos;
 	    ++cursor_y;
+            if(cursor_y >= screen_height() && curr_row != buffer.end()) {
+                // If going offscreen, scroll downwards
+                ++top_visible_row;
+                cursor_y = screen_height() - 1;
+                screen_clear();
+                draw(buffer, top_visible_row);
+            }
 	    set_cursor(cursor_x, cursor_y);
 	    screen_present();
 	    break;
@@ -351,7 +366,7 @@ int main(int argc, char **argv)
 	    inserter = curr_row->insert(inserter, TabSize, ' ');
 	    std::advance(inserter, TabSize);
 	    cursor_x += TabSize;
-	    draw(buffer);
+	    draw(buffer, top_visible_row);
 	    set_cursor(cursor_x, cursor_y);
 	    screen_present();
 	    break;
@@ -359,7 +374,7 @@ int main(int argc, char **argv)
 	    inserter = std::next(curr_row->insert(inserter, input));
 	    ++cursor_x;
 	    //history.insert(input, std::distance(buffer.begin(), curr_row));
-	    draw(buffer);
+	    draw(buffer, top_visible_row);
 	    set_cursor(cursor_x, cursor_y);
 	    screen_present();
    	}
