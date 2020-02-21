@@ -171,6 +171,33 @@ void save(const text_buffer_t &buffer, const char *filename)
     }
 }
 
+/**If necessary, move the visible text on screen up one line*/
+void scroll_up(int *cursor_y, int *top_visible_row,
+               const text_buffer_t &buffer)
+{
+    if(*cursor_y == -1) {
+        // If going offscreen, scroll upwards
+        --(*top_visible_row);
+        *cursor_y = 0;
+        screen_clear();
+        draw(buffer, *top_visible_row);
+    }
+}
+
+/**If necessary, move the visible text on screen down one line*/
+void scroll_down(int *cursor_y, int *top_visible_row,
+                 text_buffer_t::iterator curr_row,
+                 const text_buffer_t &buffer)
+{
+   if(*cursor_y == screen_height() && curr_row != buffer.end()) {
+       // If going offscreen, scroll downwards
+       ++(*top_visible_row);
+       *cursor_y = screen_height() - 1;
+       screen_clear();
+       draw(buffer, *top_visible_row);
+   }
+}
+
 
 int main(int argc, char **argv)
 {
@@ -261,6 +288,7 @@ int main(int argc, char **argv)
 		cursor_x = 0;
 		++cursor_y;
 	    }
+            scroll_down(&cursor_y, &top_visible_row, curr_row, buffer);
 	    //history.insert('\n', std::distance(buffer.begin(), curr_row));
 	    screen_clear();
 	    draw(buffer, top_visible_row);
@@ -291,6 +319,7 @@ int main(int argc, char **argv)
 		inserter = curr_row->end();
 		cursor_x = curr_row->size();
 	    }
+            scroll_up(&cursor_y, &top_visible_row, buffer);
 	    screen_clear();
 	    draw(buffer, top_visible_row);
 	    set_cursor(cursor_x, cursor_y);
@@ -307,6 +336,7 @@ int main(int argc, char **argv)
 		inserter = curr_row->begin();
 		++cursor_y;
 		cursor_x = 0;
+                scroll_down(&cursor_y, &top_visible_row, curr_row, buffer);
 	    }
 	    set_cursor(cursor_x, cursor_y);
 	    screen_present();
@@ -322,6 +352,7 @@ int main(int argc, char **argv)
 		--cursor_y;
 		inserter = curr_row->end();
 		cursor_x = curr_row->size();
+                scroll_up(&cursor_y, &top_visible_row, buffer);
 	    }
 	    set_cursor(cursor_x, cursor_y);
 	    screen_present();
@@ -335,13 +366,7 @@ int main(int argc, char **argv)
 	    inserter = std::next(curr_row->begin(), x_pos);
 	    cursor_x = x_pos;
 	    --cursor_y;
-            if(cursor_y == -1) {
-                // If going offscreen, scroll upwards
-                --top_visible_row;
-                cursor_y = 0;
-                screen_clear();
-                draw(buffer, top_visible_row);
-            }
+            scroll_up(&cursor_y, &top_visible_row, buffer);
 	    set_cursor(cursor_x, cursor_y);
 	    screen_present();
 	    break;
@@ -355,13 +380,7 @@ int main(int argc, char **argv)
 	    inserter = std::next(curr_row->begin(), x_pos);
 	    cursor_x = x_pos;
 	    ++cursor_y;
-            if(cursor_y == screen_height() && curr_row != buffer.end()) {
-                // If going offscreen, scroll downwards
-                ++top_visible_row;
-                cursor_y = screen_height() - 1;
-                screen_clear();
-                draw(buffer, top_visible_row);
-            }
+            scroll_down(&cursor_y, &top_visible_row, curr_row, buffer);
 	    set_cursor(cursor_x, cursor_y);
 	    screen_present();
 	    break;
