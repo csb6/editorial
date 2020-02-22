@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <iterator>
 #include <string>
-#include <regex>
+#include <string_view>
 #include "screen.h"
 #include "syntax-highlight.h"
 
@@ -20,89 +20,6 @@ constexpr std::size_t TabSize = 4; // in spaces
 
 using text_row_t = std::vector<char>;
 using text_buffer_t = std::list<text_row_t>;
-
-enum class Action : char {
-    Insert, Delete, Left, Right, Up, Down
-};
-
-struct Event {
-    std::size_t pos;
-    Action type;
-    std::size_t length;
-    const char *text;
-};
-
-class UndoQueue {
-private:
-    constexpr static std::size_t QueueSize = 50;
-    constexpr static std::size_t CacheSize = 2;
-    std::vector<Event> m_events;
-    std::string m_letter_cache;
-    std::size_t m_cache_start = 0;
-    void flush_cache()
-    {
-	if(m_letter_cache.empty())
-	    return;
-
-	push_back({m_cache_start, Action::Insert,
-		   m_letter_cache.size(), m_letter_cache.c_str()});
-	m_letter_cache.clear();
-    }
-public:
-    UndoQueue() { m_events.reserve(QueueSize); }
-
-    ~UndoQueue()
-    {
-	/*std::ofstream log("log.txt");
-	for(const auto &event : m_events) {
-	    log << "Pos: " << event.pos
-		      << "\nAction Type: " << (short)event.type
-		      << "\nLength: " << (short)event.length << '\n';
-	    if(event.text != nullptr) {
-	        log << "Text: \"" << std::string(event.text) << "\"";
-	    }
-	    log << '\n' << std::endl;
-	    }*/
-    }
-
-    void erase(std::size_t pos)
-    {
-	push_back({pos, Action::Delete, 0, nullptr});
-    }
-
-    void insert(char letter, std::size_t pos)
-    {
-	m_letter_cache += letter;
-        if(m_letter_cache.size() >= CacheSize) {
-	    flush_cache();
-	} else if(m_letter_cache.size() == 1) {
-	    m_cache_start = pos;
-	}
-    }
-
-    /**Immediately pushes an event to the queue*/
-    void push_back(Event next)
-    {
-	if(m_events.size() >= QueueSize) {
-	    m_events.erase(m_events.begin());
-	}
-	switch(next.type) {
-	case Action::Delete:
-	    flush_cache();
-	case Action::Insert:
-	    // Add/delete a chunk of text
-	    m_events.push_back(next);
-	    break;
-	case Action::Left:
-	case Action::Right:
-	case Action::Up:
-	case Action::Down:
-	    // Done with adding chars to current text block
-	    flush_cache();
-	    break;
-	}   
-    }
-};
 
 // The current syntax highlighting mode; set when loading a file
 void(*highlight_mode)(int,int);
@@ -172,8 +89,8 @@ void save(const text_buffer_t &buffer, const char *filename)
 }
 
 /**If necessary, move the visible text on screen up one line*/
-void scroll_up(int *cursor_y, int *top_visible_row,
-               const text_buffer_t &buffer)
+static void scroll_up(int *cursor_y, int *top_visible_row,
+                      const text_buffer_t &buffer)
 {
     if(*cursor_y == -1) {
         // If going offscreen, scroll upwards
@@ -185,9 +102,9 @@ void scroll_up(int *cursor_y, int *top_visible_row,
 }
 
 /**If necessary, move the visible text on screen down one line*/
-void scroll_down(int *cursor_y, int *top_visible_row,
-                 text_buffer_t::iterator curr_row,
-                 const text_buffer_t &buffer)
+static void scroll_down(int *cursor_y, int *top_visible_row,
+                        text_buffer_t::iterator curr_row,
+                        const text_buffer_t &buffer)
 {
    if(*cursor_y == screen_height() && curr_row != buffer.end()) {
        // If going offscreen, scroll downwards
@@ -196,6 +113,13 @@ void scroll_down(int *cursor_y, int *top_visible_row,
        screen_clear();
        draw(buffer, *top_visible_row);
    }
+}
+
+constexpr bool ends_with(std::string_view text, std::string_view match)
+{
+    if(text.size() < match.size())
+        return false;
+    return text.substr(text.size() - match.size()) == match;
 }
 
 
@@ -208,20 +132,17 @@ int main(int argc, char **argv)
     const char *filename = argv[1];
     text_buffer_t buffer{load(filename)};
     {
-        const std::regex cpp_file("^.+\\.(cpp|h|hpp|cxx)$");
-        const std::regex markdown_file("^.+\\.md$");
 	/* Open the syntax-highlighting mode appropriate for the
 	   file extension of the opened file */
-	if(std::regex_match(filename, markdown_file))
+	if(ends_with(filename, ".md"))
 	    highlight_mode = markdown_mode;
-	else if(std::regex_match(filename, cpp_file))
+	else if(ends_with(filename, ".cpp") || ends_with(filename, ".h"))
 	    highlight_mode = cpp_mode;
 	else
 	    highlight_mode = text_mode;
     }
 
     Screen window;
-    //UndoQueue history;
     auto curr_row = buffer.begin();
     auto inserter = curr_row->begin();
     int cursor_x = 0;
@@ -289,7 +210,6 @@ int main(int argc, char **argv)
 		++cursor_y;
 	    }
             scroll_down(&cursor_y, &top_visible_row, curr_row, buffer);
-	    //history.insert('\n', std::distance(buffer.begin(), curr_row));
 	    screen_clear();
 	    draw(buffer, top_visible_row);
 	    set_cursor(cursor_x, cursor_y);
@@ -396,7 +316,6 @@ int main(int argc, char **argv)
 	default:
 	    inserter = std::next(curr_row->insert(inserter, input));
 	    ++cursor_x;
-	    //history.insert(input, std::distance(buffer.begin(), curr_row));
 	    draw(buffer, top_visible_row);
 	    set_cursor(cursor_x, cursor_y);
 	    screen_present();
