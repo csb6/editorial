@@ -63,8 +63,11 @@ void markdown_mode(int, int end_row)
 	        set_cell_color(col, row, InlineCodeColor);
 		in_inline_code = !in_inline_code;
 		break;
+            case ' ':
+                // Do nothing; no need to highlight spaces
+                break;
 	    default:
-		if(character != ' ' && in_inline_code) {
+		if(in_inline_code) {
 		    set_cell_color(col, row, InlineCodeColor);
 		}
 	    }
@@ -75,37 +78,52 @@ void markdown_mode(int, int end_row)
 /**Highlights some of the common keywords and types of C++, as well as
    the text within string/character literals. start_row is the index of
    the row in the buffer at the top of the screen*/
-void cpp_mode(int start_row, int end_row)
+void cpp_mode(int, int end_row)
 {
     const int width = screen_width();
     bool in_string = false;
-    // The index in the buffer of the unclosed '"' above current screen
-    static int last_start_row = 0;
-    // True if there is an unclosed '"' above current screen
-    static bool last_in_string = false;
-    if(last_start_row < start_row)
-        /*Only worry about any previously open strings if we've scrolled down
-          them off the screen*/
-        in_string = last_in_string;
+    bool in_comment = false;
 
     for(int row = 0; row < end_row; ++row) {
 	int col = 0;
 	while(col < width) {
 	    auto character = screen_get(col, row);
-	    // Handle string highlighting
+	    // Handle string/comment highlighting, skip to next iteration
 	    if(character == '"') {
+                // String opening/closing
 		in_string = !in_string;
 		set_cell_color(col++, row, StringColor);
 		continue;
 	    } else if(in_string) {
+                // Middle of string
 		set_cell_color(col++, row, StringColor);
 		continue;
-	    }
+	    } else if(character == '/' && screen_get(col + 1, row) == '*') {
+                // Opening of multi-line comment
+                in_comment = true;
+                set_cell_color(col++, row, StringColor);
+                set_cell_color(col++, row, StringColor);
+                continue;
+            } else if(character == '*' && screen_get(col + 1, row) == '/') {
+                // Closing of multi-line comment
+                in_comment = false;
+                set_cell_color(col++, row, StringColor);
+                set_cell_color(col++, row, StringColor);
+                continue;
+            } else if(in_comment) {
+                // Middle of multi-line comment
+                set_cell_color(col++, row, StringColor);
+		continue;
+            }
+
 	    // Handle all other highlighting
 	    switch(character) {
 	    case '#':
 		HIGHLIGHT_MATCH("#include", PreprocessorColor);
 		HIGHLIGHT_MATCH("#define", PreprocessorColor);
+                HIGHLIGHT_MATCH("#ifndef", PreprocessorColor);
+                HIGHLIGHT_MATCH("#ifdef", PreprocessorColor);
+                HIGHLIGHT_MATCH("#endif", PreprocessorColor);
 		break;
             case '+': case '-': case '*': case '/':
             case '=': case '!': case '<': case '>':
@@ -113,9 +131,10 @@ void cpp_mode(int start_row, int end_row)
                 set_cell_color(col, row, KeywordColor);
                 break;
 	    case '\'':
+                // Highlight entire character literal
 		set_cell_color(col++, row, StringColor);
 		set_cell_color(col++, row, StringColor);
-		set_cell_color(col++, row, StringColor);
+		set_cell_color(col, row, StringColor);
 		break;
             case 'a':
                 HIGHLIGHT_MATCH("auto", TypeColor);
@@ -167,6 +186,9 @@ void cpp_mode(int start_row, int end_row)
 		HIGHLIGHT_MATCH("true", KeywordColor);
                 HIGHLIGHT_MATCH("try", KeywordColor);
 		break;
+            case 'u':
+                HIGHLIGHT_MATCH("unsigned", TypeColor);
+                break;
             case 'w':
                 HIGHLIGHT_MATCH("while", KeywordColor);
                 break;
@@ -174,12 +196,5 @@ void cpp_mode(int start_row, int end_row)
 
 	    ++col;
 	}
-    }
-
-    if(start_row <= last_start_row) {
-        /*Only try to close the unclosed quote if the user
-          has moved above its row in the buffer*/
-        last_start_row = start_row;
-        last_in_string = in_string;
     }
 }
