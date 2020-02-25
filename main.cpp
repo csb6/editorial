@@ -235,10 +235,12 @@ int main(int argc, char **argv)
 		std::move(curr_row->begin(), curr_row->end(),
 			  std::back_inserter(*prior_row));
 		--cursor_y;
+                auto old_len = curr_row->size();
 		buffer.erase(curr_row);
 		curr_row = prior_row;
-		inserter = curr_row->end();
-		cursor_x = curr_row->size();
+                // Move cursor to the front of the newly appended text
+		inserter = std::prev(curr_row->end(), old_len);
+		cursor_x = curr_row->size() - old_len;
 	    }
             scroll_up(&cursor_y, &top_visible_row, buffer);
 	    screen_clear();

@@ -25,6 +25,7 @@ Screen::Screen()
 	throw std::logic_error("Terminal doesn't support color");
     start_color();
     use_default_colors();
+    // Each Color constant serves as an index into the set of color schemes
     init_pair((short)Color::Red, COLOR_RED, DefaultBackgroundCode);
     init_pair((short)Color::Green, COLOR_GREEN, DefaultBackgroundCode);
     init_pair((short)Color::Yellow, COLOR_YELLOW, DefaultBackgroundCode);
@@ -59,6 +60,8 @@ int screen_get(int x, int y)
 
 int get_ch() { return getch(); }
 
+/**Used to tell ncurses to select a color for all
+   characters printed to screen for duration of scope*/
 class UsingColorPair {
 private:
     const NCURSES_ATTR_T m_pair;

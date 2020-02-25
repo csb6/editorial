@@ -8,12 +8,12 @@ you find it interesting, at least from a programming standpoint.
 
 ## Features
 
-- Syntax highlighting for C++ and Markdown activated by the file extensions, with
-  an easy way to add new languages/file types
-- Simple scrolling using up and down keys
+- Syntax highlighting for C++ and Markdown (activated by the file extension),
+  with an easy way to add new languages/file types
+- Simple scrolling using arrow keys
 - File saving/loading, with editing occurring in-memory
-- Very simple implementation; around 600 lines of C++ code
-- Extremely low CPU and memory usage
+- Simple implementation; around 600 lines of C++ code
+- Low CPU and memory usage
 - Works on any terminal supported by ncurses (essentially anything)
 
 ## Key Bindings
@@ -34,7 +34,14 @@ Just run `./build.sh`.
 
 The build script is set up to use `clang++` as the compiler, but you can
 easily change this in the build script. Also, be sure that you have
-ncurses installed and in a location that your compiler can find. Most
-Unix-like systems should already have an ncurses shared library, but
+ncurses installed and in a location that your compiler can find.
+
+Most Unix-like systems should already have an ncurses shared library, but
 on Windows you will most likely have to install PDCurses, which implements
-the same interface as ncurses on Windows platforms.
+the same interface as ncurses on Windows platforms. The editor only uses the
+most basic features of NCurses (no fancy widgets or anything), so it should be
+compatible with PDCurses. However, this has not been tested.
+
+If there is no viable ncurses support for your platform, it should be
+straightforward to port over the necessary terminal drawing code. See `screen.h`
+and `screen.cpp` for the implementation of the ncurses wrapper.
