@@ -39,7 +39,7 @@ ncurses installed and in a location that your compiler can find.
 Most Unix-like systems should already have an ncurses shared library, but
 on Windows you will most likely have to install PDCurses, which implements
 the same interface as ncurses on Windows platforms. The editor only uses the
-most basic features of NCurses (no fancy widgets or anything), so it should be
+most basic features of ncurses (no fancy widgets or anything), so it should be
 compatible with PDCurses. However, this has not been tested.
 
 If there is no viable ncurses support for your platform, it should be

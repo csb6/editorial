@@ -139,6 +139,8 @@ int main(int argc, char **argv)
 	    highlight_mode = markdown_mode;
 	else if(ends_with(filename, ".cpp") || ends_with(filename, ".h"))
 	    highlight_mode = cpp_mode;
+        else if(ends_with(filename, ".s"))
+            highlight_mode = mips_mode;
 	else
 	    highlight_mode = text_mode;
     }

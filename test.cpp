@@ -1,9 +1,18 @@
 #include <iostream>
+#ifdef __APPLE__
 #define TRUE true
+#ifndef __APPLE__
+#define TRUE false
+#endif
 
-enum class {
+enum class Numbers {
     One, Two, Three
 };
+
+/**
+ * This is a multi-line comment.
+ * It can span multiple lines.
+ */
 
 class A {
 private:

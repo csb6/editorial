@@ -198,3 +198,77 @@ void cpp_mode(int, int end_row)
 	}
     }
 }
+
+/**Highlights most instructions/registers of the MIPS-32 assembly language*/
+void mips_mode(int, int end_row)
+{
+    const int width = screen_width();
+
+    for(int row = 0; row < end_row; ++row) {
+	int col = 0;
+	while(col < width) {
+	    auto character = screen_get(col, row);
+            switch(character) {
+            case 'a':
+                HIGHLIGHT_MATCH("addiu ", InstructColor);
+                HIGHLIGHT_MATCH("addi ", InstructColor);
+                HIGHLIGHT_MATCH("addu ", InstructColor);
+                HIGHLIGHT_MATCH("add ", InstructColor);
+                HIGHLIGHT_MATCH("andi ", InstructColor);
+                HIGHLIGHT_MATCH("and ", InstructColor);
+                break;
+            case 'b':
+                HIGHLIGHT_MATCH("beq ", InstructColor);
+                HIGHLIGHT_MATCH("bne ", InstructColor);
+                break;
+            case 'd':
+                HIGHLIGHT_MATCH("div ", InstructColor);
+                break;
+            case 'j':
+                HIGHLIGHT_MATCH("j ", InstructColor);
+                HIGHLIGHT_MATCH("jal ", InstructColor);
+                HIGHLIGHT_MATCH("jr ", InstructColor);
+                break;
+            case 'l':
+                HIGHLIGHT_MATCH("lb ", InstructColor);
+                HIGHLIGHT_MATCH("lw ", InstructColor);
+                break;
+            case 'm':
+                HIGHLIGHT_MATCH("mult ", InstructColor);
+            case 'o':
+                HIGHLIGHT_MATCH("ori ", InstructColor);
+                HIGHLIGHT_MATCH("or ", InstructColor);
+                break;
+            case 's':
+                HIGHLIGHT_MATCH("sb ", InstructColor);
+                HIGHLIGHT_MATCH("sw ", InstructColor);
+                HIGHLIGHT_MATCH("syscall ", InstructColor);
+                HIGHLIGHT_MATCH("subu ", InstructColor);
+                HIGHLIGHT_MATCH("sub ", InstructColor);
+                HIGHLIGHT_MATCH("sll ", InstructColor);
+                HIGHLIGHT_MATCH("slt ", InstructColor);
+                HIGHLIGHT_MATCH("srl ", InstructColor);
+                HIGHLIGHT_MATCH("sra ", InstructColor);
+                break;
+            case '$':
+                // Highlight register names
+                // First, highlight '$', then look at following char
+                set_cell_color(col++, row, RegColor);
+                switch(screen_get(col, row)) {
+                case 'z':
+                    // Highlight 'zero'
+                    HIGHLIGHT_MATCH("zero", RegColor);
+                    continue;
+                case 't': case 's':
+                case 'a': case 'v':
+                    // Highlight tX, sX, aX, or vX 
+                    set_cell_color(col++, row, RegColor);
+                    set_cell_color(col, row, RegColor);
+                    continue;
+                }
+                break;
+            }
+            col++;
+        }
+    }
+}
