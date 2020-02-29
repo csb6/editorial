@@ -8,9 +8,10 @@ you find it interesting, at least from a programming standpoint.
 
 ## Features
 
-- Syntax highlighting for C++ and Markdown (activated by the file extension),
-  with an easy way to add new languages/file types
-- Simple scrolling using arrow keys
+- Syntax highlighting for C++, Markdown, and MIPS assembly
+  (all activated by the file extension), with an easy way to add
+  new languages/file types
+- Scrolling using arrow keys
 - File saving/loading, with editing occurring in-memory
 - Simple implementation; around 600 lines of C++ code
 - Low CPU and memory usage

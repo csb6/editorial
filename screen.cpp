@@ -38,27 +38,27 @@ Screen::Screen()
 
 Screen::~Screen() { endwin(); }
 
-int screen_width() { return COLS; }
+int Screen::width() const { return COLS; }
 
-int screen_height() { return LINES; }
+int Screen::height() const { return LINES; }
 
-void screen_clear() { clear(); }
+void Screen::clear() { ::clear(); }
 
-void screen_present() { refresh(); }
+void Screen::present() { refresh(); }
 
-void screen_present_resize()
+void Screen::present_resize()
 {
-    screen_present();
+    present();
     // Ignore next event, which will be an ERR
-    get_ch();
+    get_input();
 }
 
-int screen_get(int x, int y)
+int Screen::get(int x, int y) const
 {
     return mvinch(y, x) & A_CHARTEXT;
 }
 
-int get_ch() { return getch(); }
+int Screen::get_input() { return getch(); }
 
 /**Used to tell ncurses to select a color for all
    characters printed to screen for duration of scope*/
@@ -75,22 +75,13 @@ public:
     ~UsingColorPair() { attroff(m_pair); }
 };
 
-void set_cell(int x, int y, chtype ch, Color fg)
+void Screen::set(int x, int y, chtype ch, Color fg)
 {
     UsingColorPair curr_color(fg);
     mvaddch(y, x, ch);
 }
 
-/**Writes the given text to the screen with optional coloring; text starts
-   at the given coordinates, continuing from left to right; text wraps when
-   it hits edge of screen*/
-void write(int x, int y, const char *text, Color fg)
-{
-    UsingColorPair curr_color(fg);
-    mvaddstr(y, x, text);
-}
-
-void set_cell_color(int x, int y, Color fg)
+void Screen::set_color(int x, int y, Color fg)
 {
     auto character = mvinch(y, x);
     UsingColorPair curr_color(fg);
@@ -99,4 +90,13 @@ void set_cell_color(int x, int y, Color fg)
     }
 }
 
-void set_cursor(int x, int y) { move(y, x); }
+void Screen::set_cursor(int x, int y) { move(y, x); }
+
+/**Writes the given text to the screen with optional coloring; text starts
+   at the given coordinates, continuing from left to right; text wraps when
+   it hits edge of screen*/
+void Screen::write(int x, int y, const char *text, Color fg)
+{
+    UsingColorPair curr_color(fg);
+    mvaddstr(y, x, text);
+}
