@@ -122,7 +122,6 @@ constexpr bool ends_with(std::string_view text, std::string_view match)
 }
 
 
-
 int main(int argc, char **argv)
 {
     if(argc < 2) {
@@ -256,7 +255,7 @@ int main(int argc, char **argv)
 		++cursor_x;
 	    } else if(std::next(curr_row) != buffer.end()) {
 		// Can't go right anymore at buffer end
-		++curr_row;
+                ++curr_row;
 		inserter = curr_row->begin();
 		++cursor_y;
 		cursor_x = 0;
