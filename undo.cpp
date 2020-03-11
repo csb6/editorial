@@ -1,87 +1,73 @@
-/**Work-in-progress code for keeping track of user actions so they can be
-   undone/redone. Will also be useful for future macro system. Currently
-   not compiled as part of main code.
-*/
+#include <algorithm>
+#include "undo.h"
 
-enum class Action : char {
-    Insert, Delete, Left, Right, Up, Down
-};
+UndoQueue::UndoQueue()
+{
+    m_events.reserve(50);
+}
 
-struct Event {
-    std::size_t pos;
-    Action type;
-    std::size_t length;
-    const char *text;
-};
+UndoQueue::~UndoQueue()
+{
+    //std::ofstream log("log.txt");
+    /*for(int i = 0; i < m_insert_pos; ++i) {
+        auto &event = m_events[i];
+        std::cout << "Pos: " << event.pos
+                  << "\nAction Type: " << (short)event.type
+                  << "\nText: " << event.text << '\n' << std::endl;
+                  }*/
+}
 
-class UndoQueue {
-private:
-    constexpr static std::size_t QueueSize = 50;
-    constexpr static std::size_t CacheSize = 2;
-    std::vector<Event> m_events;
-    std::string m_letter_cache;
-    std::size_t m_cache_start = 0;
-    void flush_cache()
-    {
-	if(m_letter_cache.empty())
-	    return;
+void UndoQueue::flush_cache()
+{
+    if(m_letter_cache.empty())
+        return;
 
-	push_back({m_cache_start, Action::Insert,
-		   m_letter_cache.size(), m_letter_cache.c_str()});
-	m_letter_cache.clear();
+    push_back({m_cache_start_x, m_cache_start_y, Action::Insert, m_letter_cache});
+    m_letter_cache.clear();
+}
+
+void UndoQueue::erase(int col, int row)
+{
+    // TODO: Add cache so that can combine multiple deleted letters into 1 event
+    push_back({col, row, Action::Delete});
+}
+
+void UndoQueue::insert(char letter, int col, int row)
+{
+    m_letter_cache += letter;
+    if(m_letter_cache.size() >= CacheSize) {
+        flush_cache();
+    } else if(m_letter_cache.size() == 1) {
+        m_cache_start_x = col;
+        m_cache_start_y = row;
     }
-public:
-    UndoQueue() { m_events.reserve(QueueSize); }
+}
 
-    ~UndoQueue()
-    {
-	/*std::ofstream log("log.txt");
-	for(const auto &event : m_events) {
-	    log << "Pos: " << event.pos
-		      << "\nAction Type: " << (short)event.type
-		      << "\nLength: " << (short)event.length << '\n';
-	    if(event.text != nullptr) {
-	        log << "Text: \"" << std::string(event.text) << "\"";
-	    }
-	    log << '\n' << std::endl;
-	    }*/
+/**Immediately pushes an event to the queue*/
+void UndoQueue::push_back(Event next)
+{
+    switch(next.type) {
+    case Action::Delete:
+        flush_cache();
+        m_events.push_back(next);
+    case Action::Insert:
+        // Add/delete a chunk of text
+        m_events.push_back(next);
+        break;
+    case Action::Left:
+    case Action::Right:
+    case Action::Up:
+    case Action::Down:
+        // Done with adding chars to current text block
+        flush_cache();
+        m_events.push_back(next);
+        break;
     }
+}
 
-    void erase(std::size_t pos)
-    {
-	push_back({pos, Action::Delete, 0, nullptr});
-    }
-
-    void insert(char letter, std::size_t pos)
-    {
-	m_letter_cache += letter;
-        if(m_letter_cache.size() >= CacheSize) {
-	    flush_cache();
-	} else if(m_letter_cache.size() == 1) {
-	    m_cache_start = pos;
-	}
-    }
-
-    /**Immediately pushes an event to the queue*/
-    void push_back(Event next)
-    {
-	if(m_events.size() >= QueueSize) {
-	    m_events.erase(m_events.begin());
-	}
-	switch(next.type) {
-	case Action::Delete:
-	    flush_cache();
-	case Action::Insert:
-	    // Add/delete a chunk of text
-	    m_events.push_back(next);
-	    break;
-	case Action::Left:
-	case Action::Right:
-	case Action::Up:
-	case Action::Down:
-	    // Done with adding chars to current text block
-	    flush_cache();
-	    break;
-	}   
-    }
-};
+Event UndoQueue::pop_back()
+{
+    const auto back{m_events.back()};
+    m_events.pop_back();
+    return back;
+}

@@ -14,6 +14,7 @@
 #include <string_view>
 #include "screen.h"
 #include "syntax-highlight.h"
+#include "undo.h"
 
 constexpr std::size_t TabSize = 4; // in spaces
 
@@ -121,6 +122,30 @@ constexpr bool ends_with(std::string_view text, std::string_view match)
     return text.substr(text.size() - match.size()) == match;
 }
 
+int get_input(Screen &window, UndoQueue &history, bool needs_undo)
+{
+    if(!needs_undo)
+        return window.get_input();
+    else if(history.size() > 0) {
+        const Event last_event{history.pop_back()};
+        switch(last_event.type) {
+        case Action::Insert:
+            return Key_Backspace;
+        case Action::Delete:
+            return last_event.text[0];
+        case Action::Left:
+            return Key_Right;
+        case Action::Right:
+            return Key_Left;
+        case Action::Up:
+            return Key_Down;
+        case Action::Down:
+            return Key_Up;
+        }
+    } else
+        return window.get_input();
+}
+
 
 
 int main(int argc, char **argv)
@@ -145,6 +170,7 @@ int main(int argc, char **argv)
     }
 
     Screen window;
+    UndoQueue undo_history;
     auto curr_row = buffer.begin();
     auto inserter = curr_row->begin();
     int cursor_x = 0;
@@ -157,8 +183,9 @@ int main(int argc, char **argv)
     // Flag to redraw screen on next tick
     bool needs_redraw = false;
     bool done = false;
+    bool needs_undo = false;
     int input;
-    while(!done && (input = window.get_input())) {
+    while(!done && (input = get_input(window, undo_history, needs_undo))) {
 	if(input == Key_Resize) {
 	    window.clear();
 	    draw(window, buffer, top_visible_row);
@@ -172,6 +199,10 @@ int main(int argc, char **argv)
 	    window.present();
 	    needs_redraw = false;
 	}
+        if(input == ctrl('z')) {
+            needs_undo = true;
+            continue;
+        }
 
 	switch(input) {
 	case ctrl('c'):
@@ -187,6 +218,8 @@ int main(int argc, char **argv)
 	    break;
 	case Key_Enter:
 	case Key_Enter2:
+            if(!needs_undo)
+                undo_history.insert('\n', cursor_x, cursor_y);
 	    if(inserter == curr_row->begin() && curr_row->size() >= 1) {
 		// If at beginning of line with at least some text,
 		// newline goes before the cursor's row
@@ -221,10 +254,14 @@ int main(int argc, char **argv)
 	case Key_Backspace2:
 	    if(inserter != curr_row->begin()) {
 		// If line isn't empty, just remove the character
+                if(!needs_undo)
+                    undo_history.erase(cursor_x, cursor_y);
 		inserter = curr_row->erase(std::prev(inserter));
 		--cursor_x;
 	    } else if(curr_row->empty() && curr_row != buffer.begin()) {
 		// If line is empty and not the first row, delete that line
+                if(!needs_undo)
+                    undo_history.erase(cursor_x, cursor_y);
 		curr_row = std::prev(buffer.erase(curr_row));
 		--cursor_y;
 		inserter = curr_row->end();
@@ -232,6 +269,8 @@ int main(int argc, char **argv)
 	    } else if(curr_row != buffer.begin()) {
 		// If deleting newline in front of line with text, move text of
 		// that line to the end of the prior line
+                if(!needs_undo)
+                    undo_history.erase(cursor_x, cursor_y);
 		auto prior_row = std::prev(curr_row);
 		std::move(curr_row->begin(), curr_row->end(),
 			  std::back_inserter(*prior_row));
@@ -252,11 +291,15 @@ int main(int argc, char **argv)
 	case Key_Right:
 	    if(inserter != curr_row->end()) {
 		// Go right as long as there is text left to go over
+                if(!needs_undo)
+                    undo_history.push_back({cursor_x, cursor_y, Action::Right});
 		++inserter;
 		++cursor_x;
 	    } else if(std::next(curr_row) != buffer.end()) {
 		// Can't go right anymore at buffer end
-		++curr_row;
+                if(!needs_undo)
+                    undo_history.push_back({cursor_x, cursor_y, Action::Right});
+                ++curr_row;
 		inserter = curr_row->begin();
 		++cursor_y;
 		cursor_x = 0;
@@ -268,10 +311,14 @@ int main(int argc, char **argv)
 	case Key_Left:
 	    if(inserter != curr_row->begin()) {
 		// Go left as long as there is text left to go over
+                if(!needs_undo)
+                    undo_history.push_back({cursor_x, cursor_y, Action::Left});
 		--inserter;
 		--cursor_x;
 	    } else if(curr_row != buffer.begin()) {
 		// Can't go left anymore at buffer start
+                if(!needs_undo)
+                    undo_history.push_back({cursor_x, cursor_y, Action::Left});
 		--curr_row;
 		--cursor_y;
 		inserter = curr_row->end();
@@ -284,6 +331,8 @@ int main(int argc, char **argv)
 	case Key_Up: {
 	    if(curr_row == buffer.begin())
                 break;
+            if(!needs_undo)
+                undo_history.push_back({cursor_x, cursor_y, Action::Up});
 	    unsigned long x_pos = std::distance(curr_row->begin(), inserter);
 	    --curr_row;
 	    x_pos = std::min(x_pos, curr_row->size());
@@ -298,6 +347,8 @@ int main(int argc, char **argv)
 	case Key_Down: {
 	    if(std::next(curr_row) == buffer.end())
 		break;
+            if(!needs_undo)
+                undo_history.push_back({cursor_x, cursor_y, Action::Down});
 	    unsigned long x_pos = std::distance(curr_row->begin(), inserter);
 	    ++curr_row;
 	    x_pos = std::min(x_pos, curr_row->size());
@@ -310,6 +361,8 @@ int main(int argc, char **argv)
 	    break;
 	}
 	case Key_Tab:
+            if(!needs_undo)
+                undo_history.push_back({cursor_x, cursor_y, Action::Insert, "    "});
 	    inserter = curr_row->insert(inserter, TabSize, ' ');
 	    std::advance(inserter, TabSize);
 	    cursor_x += TabSize;
@@ -318,12 +371,18 @@ int main(int argc, char **argv)
 	    window.present();
 	    break;
 	default:
+            if(!needs_undo)
+                undo_history.insert(input, cursor_x, cursor_y);
 	    inserter = std::next(curr_row->insert(inserter, input));
 	    ++cursor_x;
 	    draw(window, buffer, top_visible_row);
 	    window.set_cursor(cursor_x, cursor_y);
 	    window.present();
    	}
+
+        if(needs_undo) {
+            needs_undo = false;
+        }
     }
 
     return 0;
