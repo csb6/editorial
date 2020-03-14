@@ -14,7 +14,6 @@
 #include <string_view>
 #include "screen.h"
 #include "syntax-highlight.h"
-#include "undo.h"
 
 constexpr std::size_t TabSize = 4; // in spaces
 
@@ -122,6 +121,67 @@ constexpr bool ends_with(std::string_view text, std::string_view match)
     return text.substr(text.size() - match.size()) == match;
 }
 
+class Cursor {
+public:
+    int x;
+    int y;
+    Screen &window;
+    text_buffer_t &buffer;
+    text_buffer_t::iterator row_it;
+    text_row_t::iterator col_it;
+
+    Cursor(Screen &win, text_buffer_t &buf)
+        : window(win), buffer(buf), row_it(buffer.begin()),
+          col_it(row_it->begin())
+    {
+        // Cursor starts at (0, 0), upper left corner of screen
+        set(0, 0);
+    }
+
+    void set(int x, int y)
+    {
+        this->x = x;
+        this->y = y;
+        window.set_cursor(x, y);
+    }
+
+    void refresh()
+    {
+        window.set_cursor(x, y);
+    }
+
+    void move_right(int amount = 1)
+    {
+        x += amount;
+        std::advance(col_it, amount);
+    }
+
+    void move_left()
+    {
+        --x;
+        --col_it;
+    }
+
+    void move_up()
+    {
+        --y;
+        --row_it;
+    }
+
+    void move_down()
+    {
+        ++y;
+        ++row_it;
+    }
+
+    void carriage_return()
+    {
+        col_it = row_it->begin();
+        x = 0;
+        ++y;
+    }
+};
+
 
 int main(int argc, char **argv)
 {
@@ -145,15 +205,10 @@ int main(int argc, char **argv)
     }
 
     Screen window;
-    UndoQueue undo_history;
-    auto curr_row = buffer.begin();
-    auto inserter = curr_row->begin();
-    int cursor_x = 0;
-    int cursor_y = 0;
+    Cursor cursor(window, buffer);
     // The index of the row in the buffer at the top of the screen
     int top_visible_row = 0;
     draw(window, buffer);
-    window.set_cursor(cursor_x, cursor_y);
     window.present();
     // Flag to redraw screen on next tick
     bool needs_redraw = false;
@@ -163,13 +218,13 @@ int main(int argc, char **argv)
 	if(input == Key_Resize) {
 	    window.clear();
 	    draw(window, buffer, top_visible_row);
-	    window.set_cursor(cursor_x, cursor_y);
+	    cursor.refresh();
 	    window.present_resize();
 	    continue;
 	} else if(needs_redraw) {
 	    window.clear();
 	    draw(window, buffer, top_visible_row);
-	    window.set_cursor(cursor_x, cursor_y);
+	    cursor.refresh();
 	    window.present();
 	    needs_redraw = false;
 	}
@@ -182,148 +237,135 @@ int main(int argc, char **argv)
 	    // Save to disk
 	    save(buffer, filename);
 	    window.write(0, 0, "Saved", Color::Yellow);
-	    window.set_cursor(cursor_x, cursor_y);
+	    cursor.refresh();
 	    window.present();
 	    needs_redraw = true;
 	    break;
 	case Key_Enter:
 	case Key_Enter2:
-	    if(inserter == curr_row->begin() && curr_row->size() >= 1) {
+	    if(cursor.col_it == cursor.row_it->begin() && cursor.row_it->size() >= 1) {
 		// If at beginning of line with at least some text,
 		// newline goes before the cursor's row
-		curr_row = std::next(buffer.insert(curr_row, text_row_t{}));
-		inserter = curr_row->begin();
-		cursor_x = 0;
-		++cursor_y;
-	    } else if(inserter == curr_row->end()) {
+		cursor.row_it = std::next(buffer.insert(cursor.row_it, text_row_t{}));
+                cursor.carriage_return();
+	    } else if(cursor.col_it == cursor.row_it->end()) {
 		// If at end of line, newline goes after the cursor's row
-		curr_row = buffer.insert(std::next(curr_row), text_row_t{});
-		inserter = curr_row->begin();
-		cursor_x = 0;
-		++cursor_y;
+		cursor.row_it = buffer.insert(std::next(cursor.row_it), text_row_t{});
+                cursor.carriage_return();
 	    } else {
 		// If in middle of line, all text after newline goes to next line
-		auto next_row = buffer.insert(std::next(curr_row), text_row_t{});
-		std::copy(inserter, curr_row->end(),
+		auto next_row = buffer.insert(std::next(cursor.row_it), text_row_t{});
+		std::copy(cursor.col_it, cursor.row_it->end(),
 			  std::back_inserter(*next_row));
-		curr_row->erase(inserter, curr_row->end());
-		curr_row = next_row;
-		inserter = curr_row->begin();
-		cursor_x = 0;
-		++cursor_y;
+		cursor.row_it->erase(cursor.col_it, cursor.row_it->end());
+		cursor.row_it = next_row;
+                cursor.carriage_return();
 	    }
-            scroll_down(window, &cursor_y, &top_visible_row, curr_row, buffer);
+            scroll_down(window, &cursor.y, &top_visible_row, cursor.row_it, buffer);
 	    window.clear();
 	    draw(window, buffer, top_visible_row);
-	    window.set_cursor(cursor_x, cursor_y);
+            cursor.refresh();
 	    window.present();
 	    break;
 	case Key_Backspace:
 	case Key_Backspace2:
-	    if(inserter != curr_row->begin()) {
+	    if(cursor.col_it != cursor.row_it->begin()) {
 		// If line isn't empty, just remove the character
-		inserter = curr_row->erase(std::prev(inserter));
-		--cursor_x;
-	    } else if(curr_row->empty() && curr_row != buffer.begin()) {
+		cursor.col_it = cursor.row_it->erase(std::prev(cursor.col_it));
+		--cursor.x;
+	    } else if(cursor.row_it->empty() && cursor.row_it != buffer.begin()) {
 		// If line is empty and not the first row, delete that line
-		curr_row = std::prev(buffer.erase(curr_row));
-		--cursor_y;
-		inserter = curr_row->end();
-		cursor_x = curr_row->size();
-	    } else if(curr_row != buffer.begin()) {
+		cursor.row_it = std::prev(buffer.erase(cursor.row_it));
+		--cursor.y;
+		cursor.col_it = cursor.row_it->end();
+		cursor.x = cursor.row_it->size();
+	    } else if(cursor.row_it != buffer.begin()) {
 		// If deleting newline in front of line with text, move text of
 		// that line to the end of the prior line
-		auto prior_row = std::prev(curr_row);
-		std::move(curr_row->begin(), curr_row->end(),
+		auto prior_row = std::prev(cursor.row_it);
+		std::move(cursor.row_it->begin(), cursor.row_it->end(),
 			  std::back_inserter(*prior_row));
-		--cursor_y;
-                auto old_len = curr_row->size();
-		buffer.erase(curr_row);
-		curr_row = prior_row;
+		--cursor.y;
+                auto old_len = cursor.row_it->size();
+		buffer.erase(cursor.row_it);
+		cursor.row_it = prior_row;
                 // Move cursor to the front of the newly appended text
-		inserter = std::prev(curr_row->end(), old_len);
-		cursor_x = curr_row->size() - old_len;
+		cursor.col_it = std::prev(cursor.row_it->end(), old_len);
+		cursor.x = cursor.row_it->size() - old_len;
 	    }
-            scroll_up(window, &cursor_y, &top_visible_row, buffer);
+            scroll_up(window, &cursor.y, &top_visible_row, buffer);
 	    window.clear();
 	    draw(window, buffer, top_visible_row);
-	    window.set_cursor(cursor_x, cursor_y);
+	    cursor.refresh();
 	    window.present();
 	    break;
 	case Key_Right:
-	    if(inserter != curr_row->end()) {
+	    if(cursor.col_it != cursor.row_it->end()) {
 		// Go right as long as there is text left to go over
-		++inserter;
-		++cursor_x;
-	    } else if(std::next(curr_row) != buffer.end()) {
+		cursor.move_right();
+	    } else if(std::next(cursor.row_it) != buffer.end()) {
 		// Can't go right anymore at buffer end
-                ++curr_row;
-		inserter = curr_row->begin();
-		++cursor_y;
-		cursor_x = 0;
-                scroll_down(window, &cursor_y, &top_visible_row, curr_row, buffer);
+                ++cursor.row_it;
+		cursor.col_it = cursor.row_it->begin();
+		++cursor.y;
+		cursor.x = 0;
+                scroll_down(window, &cursor.y, &top_visible_row, cursor.row_it, buffer);
 	    }
-	    window.set_cursor(cursor_x, cursor_y);
+	    cursor.refresh();
 	    window.present();
 	    break;
 	case Key_Left:
-	    if(inserter != curr_row->begin()) {
+	    if(cursor.col_it != cursor.row_it->begin()) {
 		// Go left as long as there is text left to go over
-		--inserter;
-		--cursor_x;
-	    } else if(curr_row != buffer.begin()) {
+		cursor.move_left();
+	    } else if(cursor.row_it != buffer.begin()) {
 		// Can't go left anymore at buffer start
-		--curr_row;
-		--cursor_y;
-		inserter = curr_row->end();
-		cursor_x = curr_row->size();
-                scroll_up(window, &cursor_y, &top_visible_row, buffer);
+		cursor.move_up();
+		cursor.col_it = cursor.row_it->end();
+		cursor.x = cursor.row_it->size();
+                scroll_up(window, &cursor.y, &top_visible_row, buffer);
 	    }
-	    window.set_cursor(cursor_x, cursor_y);
+	    cursor.refresh();
 	    window.present();
 	    break;
 	case Key_Up: {
-	    if(curr_row == buffer.begin())
+	    if(cursor.row_it == buffer.begin())
                 break;
-	    unsigned long x_pos = std::distance(curr_row->begin(), inserter);
-	    --curr_row;
-	    x_pos = std::min(x_pos, curr_row->size());
-	    inserter = std::next(curr_row->begin(), x_pos);
-	    cursor_x = x_pos;
-	    --cursor_y;
-            scroll_up(window, &cursor_y, &top_visible_row, buffer);
-	    window.set_cursor(cursor_x, cursor_y);
+	    unsigned long x_pos = std::distance(cursor.row_it->begin(), cursor.col_it);
+            cursor.move_up();
+	    x_pos = std::min(x_pos, cursor.row_it->size());
+	    cursor.col_it = std::next(cursor.row_it->begin(), x_pos);
+	    cursor.x = x_pos;
+            scroll_up(window, &cursor.y, &top_visible_row, buffer);
+	    cursor.refresh();
 	    window.present();
 	    break;
 	}
 	case Key_Down: {
-	    if(std::next(curr_row) == buffer.end())
+	    if(std::next(cursor.row_it) == buffer.end())
 		break;
-	    ++curr_row;
-	    x_pos = std::min(x_pos, curr_row->size());
-	    inserter = std::next(curr_row->begin(), x_pos);
-	    cursor_x = x_pos;
-	    ++cursor_y;
-            scroll_down(window, &cursor_y, &top_visible_row, curr_row, buffer);
-	    window.set_cursor(cursor_x, cursor_y);
+            unsigned long x_pos = std::distance(cursor.row_it->begin(), cursor.col_it);
+            cursor.move_down();
+	    x_pos = std::min(x_pos, cursor.row_it->size());
+	    cursor.col_it = std::next(cursor.row_it->begin(), x_pos);
+	    cursor.x = x_pos;
+            scroll_down(window, &cursor.y, &top_visible_row, cursor.row_it, buffer);
+	    cursor.refresh();
 	    window.present();
 	    break;
 	}
 	case Key_Tab:
-	    inserter = curr_row->insert(inserter, TabSize, ' ');
-	    std::advance(inserter, TabSize);
-	    cursor_x += TabSize;
+	    cursor.col_it = cursor.row_it->insert(cursor.col_it, TabSize, ' ');
+            cursor.move_right(TabSize);
 	    draw(window, buffer, top_visible_row);
-	    window.set_cursor(cursor_x, cursor_y);
+	    cursor.refresh();
 	    window.present();
 	    break;
 	default:
-            if(!needs_undo)
-                undo_history.insert(input, cursor_x, cursor_y);
-	    inserter = std::next(curr_row->insert(inserter, input));
-	    ++cursor_x;
+	    cursor.col_it = std::next(cursor.row_it->insert(cursor.col_it, input));
+	    ++cursor.x;
 	    draw(window, buffer, top_visible_row);
-	    window.set_cursor(cursor_x, cursor_y);
+	    cursor.refresh();
 	    window.present();
    	}
     }
