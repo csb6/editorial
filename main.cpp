@@ -14,6 +14,7 @@
 #include <string_view>
 #include "screen.h"
 #include "syntax-highlight.h"
+#include "undo.h"
 
 constexpr std::size_t TabSize = 4; // in spaces
 
@@ -144,6 +145,7 @@ int main(int argc, char **argv)
     }
 
     Screen window;
+    UndoQueue undo_history;
     auto curr_row = buffer.begin();
     auto inserter = curr_row->begin();
     int cursor_x = 0;
@@ -297,7 +299,6 @@ int main(int argc, char **argv)
 	case Key_Down: {
 	    if(std::next(curr_row) == buffer.end())
 		break;
-	    unsigned long x_pos = std::distance(curr_row->begin(), inserter);
 	    ++curr_row;
 	    x_pos = std::min(x_pos, curr_row->size());
 	    inserter = std::next(curr_row->begin(), x_pos);
@@ -317,6 +318,8 @@ int main(int argc, char **argv)
 	    window.present();
 	    break;
 	default:
+            if(!needs_undo)
+                undo_history.insert(input, cursor_x, cursor_y);
 	    inserter = std::next(curr_row->insert(inserter, input));
 	    ++cursor_x;
 	    draw(window, buffer, top_visible_row);

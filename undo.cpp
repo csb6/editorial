@@ -26,6 +26,7 @@ void UndoQueue::flush_cache()
     m_letter_cache.clear();
 }
 
+<<<<<<< HEAD
 void UndoQueue::erase(char letter, int col, int row)
 {
     // TODO: Add cache so that can combine multiple deleted letters into 1 event
