@@ -1,11 +1,9 @@
 #ifndef SCREEN_CURSES_H
 #define SCREEN_CURSES_H
-
 enum class Color : char {
     Red = 1, Green = 2, Yellow = 3, Blue = 4,
     Magenta = 5, Cyan = 6, White = 7, Default = 8
 };
-
 /**NCurses constants that can be used without #include-ing curses.h*/
 constexpr int Key_Tab = '\t';
 constexpr int Key_Backspace = 0407;
@@ -20,7 +18,6 @@ constexpr int Key_Resize = 0632;
 constexpr int ErrCode = -1;
 /**Ex: ctrl('c') -> 'Ctrl-c'; works in switch statements*/
 constexpr int ctrl(int c) { return c & 0x1f; }
-
 /**Manages NCurses setup/cleanup; checks that terminal supports colors;
    contains all functions for modifying screen*/
 class Screen {

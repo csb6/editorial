@@ -122,11 +122,12 @@ constexpr bool ends_with(std::string_view text, std::string_view match)
 }
 
 class Cursor {
+private:
+    Screen &window;
+    text_buffer_t &buffer;
 public:
     int x;
     int y;
-    Screen &window;
-    text_buffer_t &buffer;
     text_buffer_t::iterator row_it;
     text_row_t::iterator col_it;
 
@@ -178,31 +179,34 @@ public:
     {
         col_it = row_it->begin();
         x = 0;
-        ++y;
+    }
+
+    void move_line_end()
+    {
+        col_it = row_it->end();
+        x = row_it->size();
     }
 };
 
 
 int main(int argc, char **argv)
 {
-    if(argc < 2) {
+    if(argc != 2) {
 	std::printf("Usage: ./editorial </path/to/file>\n");
 	return 1;
     }
     const char *filename = argv[1];
     text_buffer_t buffer{load(filename)};
-    {
-	/* Open the syntax-highlighting mode appropriate for the
-	   file extension of the opened file */
-	if(ends_with(filename, ".md"))
-	    highlight_mode = markdown_mode;
-	else if(ends_with(filename, ".cpp") || ends_with(filename, ".h"))
-	    highlight_mode = cpp_mode;
-        else if(ends_with(filename, ".s"))
-            highlight_mode = mips_mode;
-	else
-	    highlight_mode = text_mode;
-    }
+    /* Open the syntax-highlighting mode appropriate for the
+       file extension of the opened file */
+    if(ends_with(filename, ".md"))
+        highlight_mode = markdown_mode;
+    else if(ends_with(filename, ".cpp") || ends_with(filename, ".h"))
+        highlight_mode = cpp_mode;
+    else if(ends_with(filename, ".s"))
+        highlight_mode = mips_mode;
+    else
+        highlight_mode = text_mode;
 
     Screen window;
     Cursor cursor(window, buffer);
@@ -232,7 +236,8 @@ int main(int argc, char **argv)
 	switch(input) {
 	case ctrl('c'):
 	    // Exit program
-	    return 0;
+	    done = true;
+            break;
 	case ctrl('s'):
 	    // Save to disk
 	    save(buffer, filename);
@@ -243,14 +248,16 @@ int main(int argc, char **argv)
 	    break;
 	case Key_Enter:
 	case Key_Enter2:
-	    if(cursor.col_it == cursor.row_it->begin() && cursor.row_it->size() >= 1) {
+	    if(cursor.col_it == cursor.row_it->begin() && !cursor.row_it->empty()) {
 		// If at beginning of line with at least some text,
 		// newline goes before the cursor's row
 		cursor.row_it = std::next(buffer.insert(cursor.row_it, text_row_t{}));
+                ++cursor.y;
                 cursor.carriage_return();
 	    } else if(cursor.col_it == cursor.row_it->end()) {
 		// If at end of line, newline goes after the cursor's row
 		cursor.row_it = buffer.insert(std::next(cursor.row_it), text_row_t{});
+                ++cursor.y;
                 cursor.carriage_return();
 	    } else {
 		// If in middle of line, all text after newline goes to next line
@@ -259,6 +266,7 @@ int main(int argc, char **argv)
 			  std::back_inserter(*next_row));
 		cursor.row_it->erase(cursor.col_it, cursor.row_it->end());
 		cursor.row_it = next_row;
+                ++cursor.y;
                 cursor.carriage_return();
 	    }
             scroll_down(window, &cursor.y, &top_visible_row, cursor.row_it, buffer);
@@ -277,8 +285,7 @@ int main(int argc, char **argv)
 		// If line is empty and not the first row, delete that line
 		cursor.row_it = std::prev(buffer.erase(cursor.row_it));
 		--cursor.y;
-		cursor.col_it = cursor.row_it->end();
-		cursor.x = cursor.row_it->size();
+                cursor.move_line_end();
 	    } else if(cursor.row_it != buffer.begin()) {
 		// If deleting newline in front of line with text, move text of
 		// that line to the end of the prior line
@@ -305,10 +312,8 @@ int main(int argc, char **argv)
 		cursor.move_right();
 	    } else if(std::next(cursor.row_it) != buffer.end()) {
 		// Can't go right anymore at buffer end
-                ++cursor.row_it;
-		cursor.col_it = cursor.row_it->begin();
-		++cursor.y;
-		cursor.x = 0;
+                cursor.move_down();
+                cursor.carriage_return();
                 scroll_down(window, &cursor.y, &top_visible_row, cursor.row_it, buffer);
 	    }
 	    cursor.refresh();
@@ -321,8 +326,7 @@ int main(int argc, char **argv)
 	    } else if(cursor.row_it != buffer.begin()) {
 		// Can't go left anymore at buffer start
 		cursor.move_up();
-		cursor.col_it = cursor.row_it->end();
-		cursor.x = cursor.row_it->size();
+		cursor.move_line_end();
                 scroll_up(window, &cursor.y, &top_visible_row, buffer);
 	    }
 	    cursor.refresh();

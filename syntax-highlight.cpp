@@ -33,10 +33,11 @@ static void highlight(Screen &window, int col, int row, int length, Color fg)
 
 /**If the given text matches the onscreen text starting at a given point,
    highlight the matching text onscreen*/
-#define HIGHLIGHT_MATCH(T, C) \
-if(match(window, col, row, T)) { \
-    highlight(window, col, row, std::char_traits<char>::length(T), C); \
-    col += std::char_traits<char>::length(T); \
+#define HIGHLIGHT_MATCH(TEXT, COLOR) \
+if(match(window, col, row, TEXT)) { \
+    using str = std::char_traits<char>; \
+    highlight(window, col, row, str::length(TEXT), COLOR); \
+    col += str::length(TEXT); \
     continue; \
 }
 
