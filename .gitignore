@@ -6,3 +6,6 @@ libtermbox.a
 editorial
 termbox.h
 long-file.txt
+pattern-match
+undo
+cpp-matcher.cpp
