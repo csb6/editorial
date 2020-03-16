@@ -38,7 +38,7 @@ void draw(Screen &window, const text_buffer_t &buffer, int start_row = 0)
 	auto letter = curr_row->begin();
 	while(col < width && letter != curr_row->end()) {
 	    if(std::isspace(*letter))
-		window.set(col++, row, *letter);
+		window.set(col++, row, ' ');
 	    else
 		window.set(col++, row, *letter);
 	    ++letter;
@@ -157,10 +157,10 @@ public:
         std::advance(col_it, amount);
     }
 
-    void move_left()
+    void move_left(int amount = 1)
     {
-        --x;
-        --col_it;
+        x -= amount;
+        std::advance(col_it, -amount);
     }
 
     void move_up()
@@ -213,6 +213,7 @@ int main(int argc, char **argv)
     // The index of the row in the buffer at the top of the screen
     int top_visible_row = 0;
     draw(window, buffer);
+    cursor.refresh();
     window.present();
     // Flag to redraw screen on next tick
     bool needs_redraw = false;
@@ -290,15 +291,14 @@ int main(int argc, char **argv)
 		// If deleting newline in front of line with text, move text of
 		// that line to the end of the prior line
 		auto prior_row = std::prev(cursor.row_it);
+                auto old_len = cursor.row_it->size();
 		std::move(cursor.row_it->begin(), cursor.row_it->end(),
 			  std::back_inserter(*prior_row));
-		--cursor.y;
-                auto old_len = cursor.row_it->size();
-		buffer.erase(cursor.row_it);
-		cursor.row_it = prior_row;
+                cursor.move_up();
+                buffer.erase(std::next(cursor.row_it));
                 // Move cursor to the front of the newly appended text
-		cursor.col_it = std::prev(cursor.row_it->end(), old_len);
-		cursor.x = cursor.row_it->size() - old_len;
+                cursor.move_line_end();
+                cursor.move_left(old_len);
 	    }
             scroll_up(window, &cursor.y, &top_visible_row, buffer);
 	    window.clear();
@@ -335,11 +335,10 @@ int main(int argc, char **argv)
 	case Key_Up: {
 	    if(cursor.row_it == buffer.begin())
                 break;
-	    unsigned long x_pos = std::distance(cursor.row_it->begin(), cursor.col_it);
             cursor.move_up();
-	    x_pos = std::min(x_pos, cursor.row_it->size());
-	    cursor.col_it = std::next(cursor.row_it->begin(), x_pos);
-	    cursor.x = x_pos;
+	    auto offset = std::min<unsigned long>(cursor.x, cursor.row_it->size());
+            cursor.carriage_return();
+            cursor.move_right(offset);
             scroll_up(window, &cursor.y, &top_visible_row, buffer);
 	    cursor.refresh();
 	    window.present();
@@ -348,11 +347,10 @@ int main(int argc, char **argv)
 	case Key_Down: {
 	    if(std::next(cursor.row_it) == buffer.end())
 		break;
-            unsigned long x_pos = std::distance(cursor.row_it->begin(), cursor.col_it);
             cursor.move_down();
-	    x_pos = std::min(x_pos, cursor.row_it->size());
-	    cursor.col_it = std::next(cursor.row_it->begin(), x_pos);
-	    cursor.x = x_pos;
+            auto offset = std::min<unsigned long>(cursor.x, cursor.row_it->size());
+            cursor.carriage_return();
+            cursor.move_right(offset);
             scroll_down(window, &cursor.y, &top_visible_row, cursor.row_it, buffer);
 	    cursor.refresh();
 	    window.present();
