@@ -1,7 +1,7 @@
 #include <string_view>
 #include <string> // for std::char_traits
 #include "syntax-highlight.h"
-//#include "cpp-matcher.h"
+#include "cpp-matcher.h"
 
 /**Checks if the text on the screen, going left to right starting at a
    given coordinate, matches the content of the given target text*/
@@ -118,94 +118,15 @@ void cpp_mode(Screen &window, int, int end_row)
 		continue;
             }
 
-            /*auto[is_match, len] = match(window, col, row);
+            // TODO: In code gen, fix issue with const not being highlighted
+            auto[is_match, color, len] = match(window, col, row);
             if(is_match) {
-                highlight(window, col, row, len, KeywordColor);
+                highlight(window, col, row, len, color);
                 col += len;
             } else {
                 ++col;
-                }*/
-
-	    // Handle all other highlighting
-	    switch(character) {
-	    case '#':
-		HIGHLIGHT_MATCH("#include", PreprocessorColor);
-		HIGHLIGHT_MATCH("#define", PreprocessorColor);
-                HIGHLIGHT_MATCH("#ifndef", PreprocessorColor);
-                HIGHLIGHT_MATCH("#ifdef", PreprocessorColor);
-                HIGHLIGHT_MATCH("#endif", PreprocessorColor);
-		break;
-            case '+': case '-': case '*': case '/':
-            case '=': case '!': case '<': case '>':
-            case '&': case '|': case '^': case '~':
-                window.set_color(col, row, KeywordColor);
-                break;
-	    case '\'':
-                // Highlight entire character literal
-		window.set_color(col++, row, StringColor);
-		window.set_color(col++, row, StringColor);
-		window.set_color(col, row, StringColor);
-		break;
-            case 'a':
-                HIGHLIGHT_MATCH("auto", TypeColor);
-                break;
-	    case 'b':
-		HIGHLIGHT_MATCH("bool", TypeColor);
-		HIGHLIGHT_MATCH("break", KeywordColor);
-		break;
-	    case 'c':
-		HIGHLIGHT_MATCH("char", TypeColor);
-		HIGHLIGHT_MATCH("case", KeywordColor);
-		HIGHLIGHT_MATCH("constexpr", TypeColor);
-		HIGHLIGHT_MATCH("const", TypeColor);
-                HIGHLIGHT_MATCH("continue", KeywordColor);
-		HIGHLIGHT_MATCH("class", KeywordColor);
-                HIGHLIGHT_MATCH("catch", KeywordColor);
-		break;
-	    case 'd':
-		HIGHLIGHT_MATCH("default", KeywordColor);
-		HIGHLIGHT_MATCH("delete", KeywordColor);
-                HIGHLIGHT_MATCH("do", KeywordColor);
-		break;
-	    case 'e':
-		HIGHLIGHT_MATCH("else", KeywordColor);
-		HIGHLIGHT_MATCH("enum", KeywordColor);
-		break;
-	    case 'f':
-		HIGHLIGHT_MATCH("for", KeywordColor);
-		HIGHLIGHT_MATCH("false", KeywordColor);
-		break;
-	    case 'i':
-		HIGHLIGHT_MATCH("int", TypeColor);
-		HIGHLIGHT_MATCH("if", KeywordColor);
-		break;
-	    case 'n':
-		HIGHLIGHT_MATCH("new", KeywordColor);
-		break;
-	    case 'p':
-		HIGHLIGHT_MATCH("public:", KeywordColor);
-		HIGHLIGHT_MATCH("private:", KeywordColor);
-		break;
-	    case 'r':
-		HIGHLIGHT_MATCH("return", KeywordColor);
-		break;
-	    case 's':
-		HIGHLIGHT_MATCH("switch", KeywordColor);
-		break;
-	    case 't':
-		HIGHLIGHT_MATCH("true", KeywordColor);
-                HIGHLIGHT_MATCH("try", KeywordColor);
-		break;
-            case 'u':
-                HIGHLIGHT_MATCH("unsigned", TypeColor);
-                break;
-            case 'w':
-                HIGHLIGHT_MATCH("while", KeywordColor);
-                break;
-	    }
-
-	    ++col;
-	}
+            }
+        }
     }
 }
 

@@ -3,15 +3,17 @@
 #include <string>
 #include <memory>
 #include <fstream>
+#include "syntax-highlight.h"
 
 class Tree {
 public:
     const char letter;
+    const std::string color;
     std::set<std::unique_ptr<Tree>> children;
-    explicit Tree(char l) : letter(l) {}
-    void add_child(char letter)
+    explicit Tree(char l, std::string_view c) : letter(l), color(c) {}
+    void add_child(char letter, std::string_view color)
     {
-        children.insert(std::make_unique<Tree>(letter));
+        children.insert(std::make_unique<Tree>(letter, color));
     }
 
     bool contains(char letter) const
@@ -36,7 +38,7 @@ public:
 
     bool empty() const { return size() == 0; }
 
-    void add_match(std::string_view match)
+    void add_match(std::string_view match, std::string_view color)
     {
         if(match.empty()) {
             // At end of match being added
@@ -48,9 +50,9 @@ public:
 
         char letter = match[0];
         if(!contains(letter))
-            add_child(letter);
+            add_child(letter, color);
 
-        get_child(letter)->add_match(match.substr(1));
+        get_child(letter)->add_match(match.substr(1), color);
     }
 };
 
@@ -59,18 +61,20 @@ static void print_tree(const Tree &tree, std::ofstream &file)
 {
     if(tree.empty()) {
         // If user's string ends at this node, they have a match
-        file << "return {true, curr_col - col};\n";
+        file << "return {true, curr_color, curr_col - col};\n";
         return;
     }
 
-    file << "switch(window.get(curr_col++, row)) {\n";
+    file << "if(col >= window_width) return {false, Color::Default, 0};\n"
+         << "switch(window.get(curr_col++, row)) {\n";
     for(const auto &child : tree.children) {
-        file << "case '" << child->letter << "':\n";
+        file << "case '" << child->letter << "':\n"
+             << "curr_color = " << child->color << ";\n";
         print_tree(*child, file);
         file << "break;\n";
     }
     file << "default:\n"
-         << "return {false, 0};\n"
+         << "return {false, Color::Default, 0};\n"
          << "}\n";
 }
 
@@ -79,10 +83,11 @@ void write_header(const std::string &path, const char *declaration)
     std::ofstream header_file(path + ".h");
     header_file << "#ifndef CPP_MATCHER_H\n"
                 << "#define CPP_MATCHER_H\n"
-                << "#include <utility>\n\n"
+                << "#include <tuple>\n"
+                << "#include \"screen.h\"\n\n"
                 << "class Screen;\n"
                 << declaration << ";\n"
-                << "#endif\n";
+                << "#endif" << std::endl;
 }
 
 void write_source(const std::string &path, const char *declaration,
@@ -90,10 +95,12 @@ void write_source(const std::string &path, const char *declaration,
 {
     std::ofstream src_file(path + ".cpp");
     src_file << "#include \"" << path << ".h\"\n"
-             << "#include \"screen.h\"\n\n"
+             << "#include \"syntax-highlight.h\"\n\n"
              << declaration << '\n'
              << "{\n"
-             << "std::size_t curr_col = col;\n";
+             << "int curr_col = col;\n"
+             << "Color curr_color;\n"
+             << "const int window_width = window.width();\n";
     print_tree(tree, src_file);
     src_file << "}" << std::endl;
 }
@@ -101,59 +108,59 @@ void write_source(const std::string &path, const char *declaration,
 
 int main()
 {
-    Tree t('\0');
-    t.add_match("#include");
-    t.add_match("#define");
-    t.add_match("#ifndef");
-    t.add_match("#ifdef");
-    t.add_match("#endif");
-    t.add_match("#include");
-    t.add_match("#define");
-    t.add_match("#ifndef");
-    t.add_match("#ifdef");
-    t.add_match("#endif");
-    t.add_match("+");
-    t.add_match("-");
-    t.add_match("*");
-    t.add_match("/");
-    t.add_match("=");
-    t.add_match("!");
-    t.add_match("<");
-    t.add_match(">");
-    t.add_match("&");
-    t.add_match("|");
-    t.add_match("^");
-    t.add_match("~");
-    t.add_match("auto");
-    t.add_match("bool");
-    t.add_match("break");
-    t.add_match("char");
-    t.add_match("case");
-    t.add_match("constexpr");
-    t.add_match("const");
-    t.add_match("continue");
-    t.add_match("class");
-    t.add_match("catch");
-    t.add_match("default");
-    t.add_match("delete");
-    t.add_match("do");
-    t.add_match("else");
-    t.add_match("enum");
-    t.add_match("for");
-    t.add_match("false");
-    t.add_match("int");
-    t.add_match("if");
-    t.add_match("new");
-    t.add_match("public:");
-    t.add_match("private:");
-    t.add_match("return");
-    t.add_match("switch");
-    t.add_match("true");
-    t.add_match("try");
-    t.add_match("unsigned");
-    t.add_match("while");
+    Tree t('\0', "");
+    t.add_match("#include", "PreprocessorColor");
+    t.add_match("#define", "PreprocessorColor");
+    t.add_match("#ifndef", "PreprocessorColor");
+    t.add_match("#ifdef", "PreprocessorColor");
+    t.add_match("#endif", "PreprocessorColor");
+    t.add_match("#include", "PreprocessorColor");
+    t.add_match("#define", "PreprocessorColor");
+    t.add_match("#ifndef", "PreprocessorColor");
+    t.add_match("#ifdef", "PreprocessorColor");
+    t.add_match("#endif", "PreprocessorColor");
+    t.add_match("+", "KeywordColor");
+    t.add_match("-", "KeywordColor");
+    t.add_match("*", "KeywordColor");
+    t.add_match("/", "KeywordColor");
+    t.add_match("=", "KeywordColor");
+    t.add_match("!", "KeywordColor");
+    t.add_match("<", "KeywordColor");
+    t.add_match(">", "KeywordColor");
+    t.add_match("&", "KeywordColor");
+    t.add_match("|", "KeywordColor");
+    t.add_match("^", "KeywordColor");
+    t.add_match("~", "KeywordColor");
+    t.add_match("auto", "KeywordColor");
+    t.add_match("bool", "TypeColor");
+    t.add_match("break", "KeywordColor");
+    t.add_match("char", "TypeColor");
+    t.add_match("case", "KeywordColor");
+    t.add_match("constexpr", "KeywordColor");
+    t.add_match("const", "KeywordColor");
+    t.add_match("continue", "KeywordColor");
+    t.add_match("class", "KeywordColor");
+    t.add_match("catch", "KeywordColor");
+    t.add_match("default", "KeywordColor");
+    t.add_match("delete", "KeywordColor");
+    t.add_match("do", "KeywordColor");
+    t.add_match("else", "KeywordColor");
+    t.add_match("enum", "KeywordColor");
+    t.add_match("for", "KeywordColor");
+    t.add_match("false", "KeywordColor");
+    t.add_match("int", "TypeColor");
+    t.add_match("if", "KeywordColor");
+    t.add_match("new", "KeywordColor");
+    t.add_match("public:", "KeywordColor");
+    t.add_match("private:", "KeywordColor");
+    t.add_match("return", "KeywordColor");
+    t.add_match("switch", "KeywordColor");
+    t.add_match("true", "KeywordColor");
+    t.add_match("try", "KeywordColor");
+    t.add_match("unsigned", "TypeColor");
+    t.add_match("while", "KeywordColor");
 
-    const char *declaration = "std::pair<bool,std::size_t> match(Screen &window, int col, int row)";
+    const char *declaration = "std::tuple<bool,Color,std::size_t> match(Screen &window, int col, int row)";
     const std::string path("cpp-matcher");
 
     write_header(path, declaration);

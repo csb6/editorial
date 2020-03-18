@@ -10,3 +10,4 @@ pattern-match
 undo
 cpp-matcher.cpp
 cpp-matcher.h
+cpp-matcher.o

@@ -8,9 +8,8 @@ you find it interesting, at least from a programming standpoint.
 
 ## Features
 
-- Syntax highlighting for C++, Markdown, and MIPS assembly
-  (all activated by the file extension), with an easy way to add
-  new languages/file types
+- Fast syntax highlighting for C++, Markdown, and MIPS assembly
+  (all activated by the file extension)
 - Scrolling using arrow keys
 - File saving/loading, with editing occurring in-memory
 - Simple implementation; around 600 lines of C++ code
@@ -31,18 +30,27 @@ you find it interesting, at least from a programming standpoint.
 
 ## Installation
 
-Just run `./build.sh`.
+When you first clone the repository, run `./build-full.sh`. This
+script will do the code-generation necessary to do fast syntax
+highlighting for C++. This script will call both `build-code-gen.sh`
+and `./build.sh`.
 
-The build script is set up to use `clang++` as the compiler, but you can
-easily change this in the build script. Also, be sure that you have
-ncurses installed and in a location that your compiler can find.
+After the initial cloning, just run `./build.sh` to rebuild after any changes
+to the main source code of the program (i.e. everything besides the C++
+syntax highlighting). If you do modify any of the code generation code,
+run `./build-full.sh` to get a build reflecting those changes.
+
+The build scripts are set up to use `clang++` as the compiler, but you can
+easily change this within each script. The scripts are all very short, so this
+should be straightforward. Also, be sure that you have ncurses installed
+and in a location that your compiler can find.
 
 Most Unix-like systems should already have an ncurses shared library, but
 on Windows you will most likely have to install PDCurses, which implements
-the same interface as ncurses on Windows platforms. The editor only uses the
+the same interface as ncurses on Windows platforms. This editor only uses the
 most basic features of ncurses (no fancy widgets or anything), so it should be
 compatible with PDCurses. However, this has not been tested.
 
 If there is no viable ncurses support for your platform, it should be
-straightforward to port over the necessary terminal drawing code. See `screen.h`
-and `screen.cpp` for the implementation of the ncurses wrapper.
+straightforward to port over the necessary terminal drawing code.
+See `screen.h` and `screen.cpp` for the implementation of the ncurses wrapper.
