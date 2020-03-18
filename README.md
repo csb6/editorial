@@ -35,7 +35,7 @@ script will do the code-generation necessary to do fast syntax
 highlighting for C++. This script will call both `build-code-gen.sh`
 and `./build.sh`.
 
-After the initial cloning, just run `./build.sh` to rebuild after any changes
+After the initial cloning/full build, just run `./build.sh` to rebuild after any changes
 to the main source code of the program (i.e. everything besides the C++
 syntax highlighting). If you do modify any of the code generation code,
 run `./build-full.sh` to get a build reflecting those changes.
