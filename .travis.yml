@@ -6,8 +6,7 @@ compiler:
 os:
 - osx
 
-before_install:
-- alias l=ls
+dist: bionic
 
 script:
 - ./build-full.sh
