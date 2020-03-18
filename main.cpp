@@ -62,7 +62,7 @@ text_buffer_t load(const char *filename)
 	char curr = file.get();
 	if(curr == '\n') {
 	    buffer.emplace_back();
-            curr_row = std::prev(buffer.end());
+	    curr_row = std::prev(buffer.end());
 	} else {
 	    curr_row->push_back(curr);
 	}
@@ -252,21 +252,22 @@ int main(int argc, char **argv)
 	    if(cursor.col_it == cursor.row_it->begin() && !cursor.row_it->empty()) {
 		// If at beginning of line with at least some text,
 		// newline goes before the cursor's row
-                cursor.row_it = buffer.emplace(cursor.row_it);
-                cursor.move_down();
+		cursor.row_it = std::next(buffer.emplace(cursor.row_it));
+                ++cursor.y;
                 cursor.carriage_return();
 	    } else if(cursor.col_it == cursor.row_it->end()) {
 		// If at end of line, newline goes after the cursor's row
-                cursor.move_down();
-                cursor.row_it = buffer.emplace(cursor.row_it);
+		cursor.row_it = buffer.emplace(std::next(cursor.row_it));
+                ++cursor.y;
                 cursor.carriage_return();
 	    } else {
 		// If in middle of line, all text after newline goes to next line
 		auto next_row = buffer.emplace(std::next(cursor.row_it));
 		std::copy(cursor.col_it, cursor.row_it->end(),
 			  std::back_inserter(*next_row));
-		cursor.col_it = cursor.row_it->erase(cursor.col_it, cursor.row_it->end());
-	        cursor.move_down();
+		cursor.row_it->erase(cursor.col_it, cursor.row_it->end());
+		cursor.row_it = next_row;
+                ++cursor.y;
                 cursor.carriage_return();
 	    }
             scroll_down(window, &cursor.y, &top_visible_row, cursor.row_it, buffer);
@@ -283,18 +284,18 @@ int main(int argc, char **argv)
 		--cursor.x;
 	    } else if(cursor.row_it->empty() && cursor.row_it != buffer.begin()) {
 		// If line is empty and not the first row, delete that line
-                cursor.row_it = buffer.erase(cursor.row_it);
-                cursor.move_up();
+		cursor.row_it = std::prev(buffer.erase(cursor.row_it));
+		--cursor.y;
                 cursor.move_line_end();
 	    } else if(cursor.row_it != buffer.begin()) {
 		// If deleting newline in front of line with text, move text of
 		// that line to the end of the prior line
+		auto prior_row = std::prev(cursor.row_it);
+                auto old_len = cursor.row_it->size();
+		std::move(cursor.row_it->begin(), cursor.row_it->end(),
+			  std::back_inserter(*prior_row));
                 cursor.move_up();
-                auto old_row = std::next(cursor.row_it);
-                auto old_len = old_row->size();
-                std::move(old_row->begin(), old_row->end(),
-                          std::back_inserter(*cursor.row_it));
-                cursor.row_it = buffer.erase(old_row);
+                buffer.erase(std::next(cursor.row_it));
                 // Move cursor to the front of the newly appended text
                 cursor.move_line_end();
                 cursor.move_left(old_len);
