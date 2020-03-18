@@ -10,6 +10,9 @@ enum class Numbers {
 };
 
 constexpr bool SomeConstant = false;
+std::string newthing = "newthing should be completely unhighlighted";
+int interesting = 0;
+bool deleteme = false;
 
 /**
  * This is a multi-line comment.

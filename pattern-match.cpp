@@ -3,7 +3,6 @@
 #include "pattern-match.h"
 #include <algorithm>
 
-
 void Tree::add_child(char letter, std::string_view color)
 {
     children.insert(std::make_unique<Tree>(letter, color));
@@ -63,7 +62,12 @@ static void print_tree(const Tree &tree, std::ofstream &file)
          << "}\n";
 }
 
-void write_header(const std::string &path, const char *declaration)
+
+// Used to construct the declaration of matching functions (e.g. match_cpp())
+constexpr const char *ReturnType = "std::tuple<bool,Color,std::size_t> ";
+constexpr const char *Args = "(Screen &window, int col, int row)";
+
+void write_header(const std::string &path, const char *func_name)
 {
     std::ofstream header_file(path + ".h");
     std::string header_title(path);
@@ -73,17 +77,17 @@ void write_header(const std::string &path, const char *declaration)
                 << "#define " << header_title << "_H\n"
                 << "#include <tuple>\n"
                 << "#include \"screen.h\"\n\n"
-                << declaration << ";\n"
+                << ReturnType << func_name << Args << ";\n"
                 << "#endif" << std::endl;
 }
 
-void write_source(const std::string &path, const char *declaration,
+void write_source(const std::string &path, const char *func_name,
                   const Tree &tree)
 {
     std::ofstream src_file(path + ".cpp");
     src_file << "#include \"" << path << ".h\"\n"
              << "#include \"syntax-highlight.h\"\n\n"
-             << declaration << '\n'
+             << ReturnType << func_name << Args << '\n'
              << "{\n"
              << "int curr_col = col;\n"
              << "Color curr_color;\n"

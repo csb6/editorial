@@ -14,6 +14,7 @@ public:
     const std::string color;
     std::set<std::unique_ptr<Tree>> children;
 
+    Tree() : letter{} {}
     explicit Tree(char l, std::string_view c) : letter(l), color(c) {}
 
     Tree* get_child(char letter);
@@ -22,7 +23,7 @@ public:
     void add_match(std::string_view match, std::string_view color);
 };
 
-void write_header(const std::string &path, const char *declaration);
-void write_source(const std::string &path, const char *declaration,
+void write_header(const std::string &path, const char *func_name);
+void write_source(const std::string &path, const char *func_name,
                   const Tree &tree);
 #endif

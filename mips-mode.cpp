@@ -4,7 +4,7 @@
 
 int main()
 {
-    Tree t('\0', "");
+    Tree t;
     t.add_match("addiu ", "InstructColor");
     t.add_match("addi ", "InstructColor");
     t.add_match("addu ", "InstructColor");
@@ -41,17 +41,17 @@ int main()
     const std::array<std::string,reg_count> reg_kind{"$t", "$s", "$a", "$v"};
     // How many registers there are for each register kind
     const std::array<int,reg_count>         kind_amt{ 10,   8,    4,    2};
-    // Add $t0-$t9, $s0-$s7, $a0-$a3, and $v0-$v1 to list of matches
+    // Add $t0-$t9, $s0-$s7, $a0-$a3, and $v0-$v1 to list of things to match
     for(int kind = 0; kind < reg_count; ++kind) {
         for(int i = 0; i < kind_amt[kind]; ++i)
             t.add_match(reg_kind[kind] + std::to_string(i), "RegColor");
     }
 
-    const char *declaration = "std::tuple<bool,Color,std::size_t> match_mips(Screen &window, int col, int row)";
+    const char *func_name = "match_mips";
     const std::string path("mips_matcher");
 
-    write_header(path, declaration);
-    write_source(path, declaration, t);
+    write_header(path, func_name);
+    write_source(path, func_name, t);
 
     return 0;
 }
