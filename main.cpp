@@ -53,8 +53,10 @@ void draw(Screen &window, const text_buffer_t &buffer, int start_row = 0)
 text_buffer_t load(const char *filename)
 {
     std::ifstream file(filename);
-    if(!file)
-	throw std::ifstream::failure("Could not open given file");
+    if(!file) {
+        // If file doesn't exist, create it
+        std::ofstream new_file(filename);
+    }
     text_buffer_t buffer;
     buffer.emplace_back();
     auto curr_row = buffer.begin();
