@@ -12,7 +12,7 @@ you find it interesting, at least from a programming standpoint.
   (all activated by the file extension)
 - Scrolling using arrow keys
 - File saving/loading, with editing occurring in-memory
-- Simple implementation; around 600 lines of C++ code
+- Small implementation; around 800 lines of C++ code (not including generated code)
 - Low CPU and memory usage
 - Works on any terminal supported by ncurses (essentially anything)
 
