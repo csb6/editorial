@@ -8,6 +8,9 @@ termbox.h
 long-file.txt
 pattern-match
 undo
-cpp-matcher.cpp
-cpp-matcher.h
-cpp-matcher.o
+cpp_matcher.cpp
+cpp_matcher.h
+cpp_matcher.o
+mips_matcher.cpp
+mips_matcher.h
+mips_matcher.o

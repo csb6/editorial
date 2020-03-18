@@ -1,20 +1,8 @@
 #include <string_view>
 #include <string> // for std::char_traits
 #include "syntax-highlight.h"
-#include "cpp-matcher.h"
-
-/**Checks if the text on the screen, going left to right starting at a
-   given coordinate, matches the content of the given target text*/
-static bool match(Screen &window, int col, int row, std::string_view target)
-{
-    const int width = window.width();
-    for(std::size_t i = 0; i < target.size(); ++i) {
-	if(col >= width || window.get(col, row) != target[i])
-	    return false;
-	++col;
-    }
-    return true;
-}
+#include "cpp_matcher.h"
+#include "mips_matcher.h"
 
 /**Highlights length number of characters onscreen with the given
    foreground color; bounds checks to stay within current screen size*/
@@ -30,16 +18,6 @@ static void highlight(Screen &window, int col, int row, int length, Color fg)
 	    ++i;
 	}
     }
-}
-
-/**If the given text matches the onscreen text starting at a given point,
-   highlight the matching text onscreen*/
-#define HIGHLIGHT_MATCH(TEXT, COLOR) \
-if(match(window, col, row, TEXT)) { \
-    using str = std::char_traits<char>; \
-    highlight(window, col, row, str::length(TEXT), COLOR); \
-    col += str::length(TEXT); \
-    continue; \
 }
 
 /**Default highlighting mode; highlights nothing*/
@@ -119,7 +97,7 @@ void cpp_mode(Screen &window, int, int end_row)
             }
 
             // TODO: In code gen, fix issue with const not being highlighted
-            auto[is_match, color, len] = match(window, col, row);
+            auto[is_match, color, len] = match_cpp(window, col, row);
             if(is_match) {
                 highlight(window, col, row, len, color);
                 col += len;
@@ -138,68 +116,13 @@ void mips_mode(Screen &window, int, int end_row)
     for(int row = 0; row < end_row; ++row) {
 	int col = 0;
 	while(col < width) {
-	    auto character = window.get(col, row);
-            switch(character) {
-            case 'a':
-                HIGHLIGHT_MATCH("addiu ", InstructColor);
-                HIGHLIGHT_MATCH("addi ", InstructColor);
-                HIGHLIGHT_MATCH("addu ", InstructColor);
-                HIGHLIGHT_MATCH("add ", InstructColor);
-                HIGHLIGHT_MATCH("andi ", InstructColor);
-                HIGHLIGHT_MATCH("and ", InstructColor);
-                break;
-            case 'b':
-                HIGHLIGHT_MATCH("beq ", InstructColor);
-                HIGHLIGHT_MATCH("bne ", InstructColor);
-                break;
-            case 'd':
-                HIGHLIGHT_MATCH("div ", InstructColor);
-                break;
-            case 'j':
-                HIGHLIGHT_MATCH("j ", InstructColor);
-                HIGHLIGHT_MATCH("jal ", InstructColor);
-                HIGHLIGHT_MATCH("jr ", InstructColor);
-                break;
-            case 'l':
-                HIGHLIGHT_MATCH("lb ", InstructColor);
-                HIGHLIGHT_MATCH("lw ", InstructColor);
-                break;
-            case 'm':
-                HIGHLIGHT_MATCH("mult ", InstructColor);
-            case 'o':
-                HIGHLIGHT_MATCH("ori ", InstructColor);
-                HIGHLIGHT_MATCH("or ", InstructColor);
-                break;
-            case 's':
-                HIGHLIGHT_MATCH("sb ", InstructColor);
-                HIGHLIGHT_MATCH("sw ", InstructColor);
-                HIGHLIGHT_MATCH("syscall ", InstructColor);
-                HIGHLIGHT_MATCH("subu ", InstructColor);
-                HIGHLIGHT_MATCH("sub ", InstructColor);
-                HIGHLIGHT_MATCH("sll ", InstructColor);
-                HIGHLIGHT_MATCH("slt ", InstructColor);
-                HIGHLIGHT_MATCH("srl ", InstructColor);
-                HIGHLIGHT_MATCH("sra ", InstructColor);
-                break;
-            case '$':
-                // Highlight register names
-                // First, highlight '$', then look at following char
-                window.set_color(col++, row, RegColor);
-                switch(window.get(col, row)) {
-                case 'z':
-                    // Highlight 'zero'
-                    HIGHLIGHT_MATCH("zero", RegColor);
-                    continue;
-                case 't': case 's':
-                case 'a': case 'v':
-                    // Highlight tX, sX, aX, or vX 
-                    window.set_color(col++, row, RegColor);
-                    window.set_color(col, row, RegColor);
-                    continue;
-                }
-                break;
+            auto[is_match, color, len] = match_mips(window, col, row);
+            if(is_match) {
+                highlight(window, col, row, len, color);
+                col += len;
+            } else {
+                ++col;
             }
-            col++;
         }
     }
 }

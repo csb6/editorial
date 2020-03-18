@@ -1,4 +1,6 @@
         addi  $a0, $zero, 1
+        addi  $a1, $a2, 0
+        addi  $a3, $zero, 1
         add   $t0, $t1, $s0
         addi  $v0, $zero, 11
         addiu $s0, $t0, 56
@@ -11,8 +13,8 @@
         j     Label
         jal   Label
         jr    $s5
-        lb    $s6, 0($t5)
-        lw    $s6, 4($t5)
+        lb    $s6, 0($t9)
+        lw    $s6, 4($s7)
         mult  $t7, $zero, $zero
         ori   $s4, $zero, 5
         or    $s3, $zero, $zero
@@ -23,4 +25,6 @@
         sll   $s4, $s4, 2
         srl   $s4, $s4, 2
         sra   $s4, $s4, 2
+        lw    $fp, 0($sp)
+        lw    $ra, 4($sp)
         syscall
