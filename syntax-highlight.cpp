@@ -1,6 +1,7 @@
 #include <string_view>
 #include <string> // for std::char_traits
 #include "syntax-highlight.h"
+//#include "cpp-matcher.h"
 
 /**Checks if the text on the screen, going left to right starting at a
    given coordinate, matches the content of the given target text*/
@@ -116,6 +117,14 @@ void cpp_mode(Screen &window, int, int end_row)
                 window.set_color(col++, row, StringColor);
 		continue;
             }
+
+            /*auto[is_match, len] = match(window, col, row);
+            if(is_match) {
+                highlight(window, col, row, len, KeywordColor);
+                col += len;
+            } else {
+                ++col;
+                }*/
 
 	    // Handle all other highlighting
 	    switch(character) {

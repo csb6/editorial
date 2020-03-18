@@ -9,3 +9,4 @@ long-file.txt
 pattern-match
 undo
 cpp-matcher.cpp
+cpp-matcher.h

@@ -1,5 +1,6 @@
 #include <set>
 #include <string_view>
+#include <string>
 #include <memory>
 #include <fstream>
 
@@ -39,10 +40,12 @@ public:
     {
         if(match.empty()) {
             // At end of match being added
-            if(!contains('\0'))
-                add_child('\0');
             return;
         }
+        assert(!std::any_of(match.begin(), match.end(),
+                            [](auto e) { return std::isspace(e); })
+               && "Error: match can't contain a space character");
+
         char letter = match[0];
         if(!contains(letter))
             add_child(letter);
@@ -56,24 +59,43 @@ static void print_tree(const Tree &tree, std::ofstream &file)
 {
     if(tree.empty()) {
         // If user's string ends at this node, they have a match
-        file << "return {true, i-1};\n";
+        file << "return {true, curr_col - col};\n";
         return;
     }
 
-    file << "switch(str[i++]) {\n";
+    file << "switch(window.get(curr_col++, row)) {\n";
     for(const auto &child : tree.children) {
-        if(child->letter != '\0') {
-            file << "case '" << child->letter << "':\n";
-            print_tree(*child, file);
-            file << "break;\n";
-        } else {
-            file << "case '\\0':\n";
-            file << "return {true, i};\n";
-        }
+        file << "case '" << child->letter << "':\n";
+        print_tree(*child, file);
+        file << "break;\n";
     }
     file << "default:\n"
          << "return {false, 0};\n"
          << "}\n";
+}
+
+void write_header(const std::string &path, const char *declaration)
+{
+    std::ofstream header_file(path + ".h");
+    header_file << "#ifndef CPP_MATCHER_H\n"
+                << "#define CPP_MATCHER_H\n"
+                << "#include <utility>\n\n"
+                << "class Screen;\n"
+                << declaration << ";\n"
+                << "#endif\n";
+}
+
+void write_source(const std::string &path, const char *declaration,
+                  const Tree &tree)
+{
+    std::ofstream src_file(path + ".cpp");
+    src_file << "#include \"" << path << ".h\"\n"
+             << "#include \"screen.h\"\n\n"
+             << declaration << '\n'
+             << "{\n"
+             << "std::size_t curr_col = col;\n";
+    print_tree(tree, src_file);
+    src_file << "}" << std::endl;
 }
 
 
@@ -131,12 +153,11 @@ int main()
     t.add_match("unsigned");
     t.add_match("while");
 
-    std::ofstream file("cpp-matcher.cpp");
-    file << "std::pair<bool,int> match(const char *str)\n"
-         << "{\n"
-         << "int i = 0;\n";
-    print_tree(t, file);
-    file << "}\n";
+    const char *declaration = "std::pair<bool,std::size_t> match(Screen &window, int col, int row)";
+    const std::string path("cpp-matcher");
+
+    write_header(path, declaration);
+    write_source(path, declaration, t);
 
     return 0;
 }
