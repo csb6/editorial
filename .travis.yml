@@ -5,6 +5,7 @@ compiler:
 
 os:
 - osx
+- linux
 
 dist: bionic
 
