@@ -75,7 +75,7 @@ public:
     ~UsingColorPair() { attroff(m_pair); }
 };
 
-void Screen::set(int x, int y, chtype ch, Color fg)
+void Screen::set(int x, int y, unsigned int ch, Color fg)
 {
     UsingColorPair curr_color(fg);
     mvaddch(y, x, ch);
