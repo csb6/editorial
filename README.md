@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.com/csb6/editorial.svg?branch=master)](https://travis-ci.com/csb6/editorial)
+
 # Editorial
 
 A text editor for your terminal, written in C++17.
