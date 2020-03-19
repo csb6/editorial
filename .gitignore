@@ -2,4 +2,9 @@
 .#*
 *#
 undo
-build/*
+*.o
+editorial
+cpp_matcher.h
+cpp_matcher.cpp
+mips_matcher.h
+mips_matcher.cpp

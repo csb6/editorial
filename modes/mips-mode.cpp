@@ -48,7 +48,7 @@ int main()
     }
 
     const char *func_name = "match_mips";
-    const std::string path("build/mips_matcher");
+    const std::string path("mips_matcher");
 
     write_header(path, func_name);
     write_source(path, func_name, t);
