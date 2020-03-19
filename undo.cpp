@@ -52,6 +52,7 @@ void UndoQueue::push_back(Event next)
     case Action::Delete:
         flush_cache();
         m_events.push_back(next);
+        break;
     case Action::Insert:
         // Add/delete a chunk of text
         m_events.push_back(next);
