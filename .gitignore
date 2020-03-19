@@ -1,16 +1,5 @@
 *~
 .#*
 *#
-termbox/*
-libtermbox.a
-editorial
-termbox.h
-long-file.txt
-pattern-match
 undo
-cpp_matcher.cpp
-cpp_matcher.h
-cpp_matcher.o
-mips_matcher.cpp
-mips_matcher.h
-mips_matcher.o
+build/*

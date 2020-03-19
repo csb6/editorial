@@ -56,7 +56,7 @@ int main()
     t.add_match("while", "KeywordColor");
 
     const char *func_name = "match_cpp";
-    const std::string path("cpp_matcher");
+    const std::string path("build/cpp_matcher");
 
     write_header(path, func_name);
     write_source(path, func_name, t);

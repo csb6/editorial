@@ -10,11 +10,12 @@ set -e
 #code for matching a language's keywords/types. It will be linked into every
 #mode's code-gen program
 $compiler -std=c++17 -Wall -Wextra -pedantic-errors -c pattern-match.cpp
+mv pattern-match.o build
 
 #Next, generate ./cpp-mode, the code-gen program for C++ highlighting. This program
 #will generate cpp_matcher.h and cpp_matcher.cpp which will contain a specialized
 #function that matches C++ keywords on an NCurses terminal screen
-$compiler -std=c++17 -o cpp-mode cpp-mode.cpp pattern-match.o
+$compiler -std=c++17 -I. -o cpp-mode modes/cpp-mode.cpp build/pattern-match.o
 #Generate cpp-matcher.h and cpp-matcher.cpp
 ./cpp-mode
 rm cpp-mode
@@ -22,13 +23,15 @@ rm cpp-mode
 #This file will be linked into the main executable, ./editorial, when ./build.sh
 #is run, preventing code-gen from happening on normal builds
 $compiler -std=c++17 -c cpp_matcher.cpp
+mv cpp_matcher.o build
 
 #Same as above, but for MIPS assembly matching
-$compiler -std=c++17 -o mips-mode mips-mode.cpp pattern-match.o
+$compiler -std=c++17 -I. -o mips-mode modes/mips-mode.cpp build/pattern-match.o
 #Generate mips_matcher.h and mips_matcher.cpp
 ./mips-mode
 rm mips-mode
 $compiler -std=c++17 -c mips_matcher.cpp
+mv mips_matcher.o build
 
 #Cleanup after code gen
-rm pattern-match.o
+rm build/pattern-match.o
