@@ -8,28 +8,24 @@ enum class Action : char {
 };
 
 struct Event {
-    int col;
-    int row;
     Action type;
-    std::string text = "";
+    std::string text{};
 };
 
 class UndoQueue {
 private:
-    constexpr static std::size_t CacheSize = 1;
+    constexpr static std::size_t CacheSize = 10; //in characters
     std::vector<Event> m_events;
-    std::string m_letter_cache;
-    int m_cache_start_x = 0;
-    int m_cache_start_y = 0;
+    std::string m_insert_cache;
+    std::string m_delete_cache;
+    void flush_insert_cache();
+    void flush_delete_cache();
 public:
     UndoQueue();
     ~UndoQueue();
-    void flush_cache();
-    void erase(char letter, int col, int row);
-    void insert(char letter, int col, int row);
     /**Immediately pushes an event to the queue*/
-    void push_back(Event next);
-    Event pop_back();
+    void push(Action event, char letter = 0);
+    Event pop();
     std::size_t size() const { return m_events.size(); }
 };
 #endif

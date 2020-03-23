@@ -1,5 +1,6 @@
 #include <algorithm>
 #include "undo.h"
+#include <iostream>
 
 UndoQueue::UndoQueue()
 {
@@ -8,69 +9,117 @@ UndoQueue::UndoQueue()
 
 UndoQueue::~UndoQueue()
 {
-    //std::ofstream log("log.txt");
-    /*for(int i = 0; i < m_insert_pos; ++i) {
-        auto &event = m_events[i];
-        std::cout << "Pos: " << event.pos
-                  << "\nAction Type: " << (short)event.type
-                  << "\nText: " << event.text << '\n' << std::endl;
-                  }*/
+    for(const auto &[type, text] : m_events) {
+        std::cout << "Action Type: ";
+        switch(type) {
+        case Action::Insert:
+            std::cout << "Insert\n";
+            break;
+        case Action::Delete:
+            std::cout << "Delete\n";
+            break;
+        case Action::Left:
+            std::cout << "Left\n";
+            break;
+        case Action::Right:
+            std::cout << "Right\n";
+            break;
+        case Action::Up:
+            std::cout << "Up\n";
+            break;
+        case Action::Down:
+            std::cout << "Down\n";
+            break;
+        }
+        std::cout << "Text: " << text << '\n' << std::endl;
+    }
 }
 
-void UndoQueue::flush_cache()
+void UndoQueue::flush_insert_cache()
 {
-    if(m_letter_cache.empty())
-        return;
-
-    push_back({m_cache_start_x, m_cache_start_y, Action::Insert, m_letter_cache});
-    m_letter_cache.clear();
+    if(!m_insert_cache.empty()) {
+        // If needed, flush cached insert events
+        m_events.push_back({Action::Insert, m_insert_cache});
+        m_insert_cache.clear();
+    }
 }
 
-void UndoQueue::erase(char letter, int col, int row)
+void UndoQueue::flush_delete_cache()
 {
-    // TODO: Add cache so that can combine multiple deleted letters into 1 event
-    std::string text;
-    text += letter;
-    push_back({col, row, Action::Delete, text});
-}
-
-void UndoQueue::insert(char letter, int col, int row)
-{
-    m_letter_cache += letter;
-    if(m_letter_cache.size() >= CacheSize) {
-        flush_cache();
-    } else if(m_letter_cache.size() == 1) {
-        m_cache_start_x = col;
-        m_cache_start_y = row;
+    if(!m_delete_cache.empty()) {
+        // If needed, flush cached backspace events
+        m_events.push_back({Action::Delete, m_delete_cache});
+        m_delete_cache.clear();
     }
 }
 
 /**Immediately pushes an event to the queue*/
-void UndoQueue::push_back(Event next)
+void UndoQueue::push(Action event, char letter)
 {
-    switch(next.type) {
+    switch(event) {
     case Action::Delete:
-        flush_cache();
-        m_events.push_back(next);
+        flush_insert_cache();
+        m_delete_cache += letter;
+        if(m_delete_cache.size() >= CacheSize) {
+            flush_delete_cache();
+        }
         break;
     case Action::Insert:
         // Add/delete a chunk of text
-        m_events.push_back(next);
+        flush_delete_cache();
+        m_insert_cache += letter;
+        if(m_insert_cache.size() >= CacheSize) {
+            flush_insert_cache();
+        }
         break;
     case Action::Left:
     case Action::Right:
     case Action::Up:
     case Action::Down:
-        // Done with adding chars to current text block
-        flush_cache();
-        m_events.push_back(next);
+        // At least one of these 2 calls should do nothing
+        flush_insert_cache();
+        flush_delete_cache();
+        m_events.push_back({event});
         break;
     }
 }
 
-Event UndoQueue::pop_back()
+Event UndoQueue::pop()
 {
     const auto back{m_events.back()};
     m_events.pop_back();
     return back;
+}
+
+int main()
+{
+    UndoQueue q;
+    q.push(Action::Insert, 'a');
+    q.push(Action::Insert, 'a');
+    q.push(Action::Insert, 'a');
+    q.push(Action::Insert, 'a');
+    q.push(Action::Insert, 'a');
+    q.push(Action::Insert, 'a');
+    q.push(Action::Insert, 'a');
+    q.push(Action::Insert, 'a');
+    q.push(Action::Insert, 'a');
+    q.push(Action::Insert, 'a');
+
+    q.push(Action::Insert, 'a');
+    q.push(Action::Insert, 'a');
+
+    q.push(Action::Delete, 'a');
+
+    q.push(Action::Left);
+    q.push(Action::Up);
+
+    q.push(Action::Delete, 'a');
+    q.push(Action::Delete, 'a');
+    q.push(Action::Delete, 'a');
+    q.push(Action::Delete, 'a');
+
+    q.push(Action::Insert, 'b');
+    q.push(Action::Right);
+
+    return 0;
 }
