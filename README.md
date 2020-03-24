@@ -11,11 +11,12 @@ you find it interesting, at least from a programming standpoint.
 ## Features
 
 - Fast syntax highlighting for C++, Markdown, and MIPS assembly
-  (all activated by the file extension)
-- Scrolling using arrow keys
+  (activated by file extension)
+- Basic undo functionality
 - File saving/loading, with editing occurring in-memory
-- Small implementation; around 800 lines of C++ code (not including generated code)
+- Small implementation; around 900 lines of C++ code (not including generated code)
 - Low CPU and memory usage
+- Scrolling using arrow keys
 - Works on any terminal supported by ncurses (essentially anything)
 
 ## Key Bindings
@@ -23,6 +24,9 @@ you find it interesting, at least from a programming standpoint.
 **Ctrl-s** : Save the file to disk
 
 **Ctrl-c** : Quit (without saving)
+
+**Ctrl-z** : Undo last action (e.g. moving left one character, deleting
+a character)
 
 **Left and Right Arrows** : Move cursor one character forward/backward
 
@@ -34,11 +38,11 @@ you find it interesting, at least from a programming standpoint.
 
 When you first clone the repository, run `./build-full.sh`. This
 script will do the code-generation necessary to do fast syntax
-highlighting for C++. This script will call both `build-code-gen.sh`
-and `./build.sh`.
+highlighting. This script will call both `build-code-gen.sh` and
+`./build.sh`.
 
 After the initial cloning/full build, just run `./build.sh` to rebuild after any changes
-to the main source code of the program (i.e. everything besides the C++
+to the main source code of the program (i.e. everything besides the
 syntax highlighting). If you do modify any of the code generation code,
 run `./build-full.sh` to get a build reflecting those changes.
 
