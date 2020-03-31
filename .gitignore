@@ -4,6 +4,7 @@
 undo
 *.o
 editorial
+scanner
 cpp_matcher.h
 cpp_matcher.cpp
 mips_matcher.h

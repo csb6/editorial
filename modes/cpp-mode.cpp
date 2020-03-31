@@ -1,6 +1,5 @@
 #include "pattern-match.h"
 #include <string>
-
 int main()
 {
     Tree t;
@@ -54,12 +53,10 @@ int main()
     t.add_match("try", "KeywordColor");
     t.add_match("unsigned ", "TypeColor");
     t.add_match("while", "KeywordColor");
-
+    t.add_match("void", "TypeColor");
     const char *func_name = "match_cpp";
     const std::string path("cpp_matcher");
-
     write_header(path, func_name);
     write_source(path, func_name, t);
-
     return 0;
 }

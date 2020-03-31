@@ -198,7 +198,7 @@ int get_input(Screen &window, bool needs_undo, UndoQueue &history)
         return window.get_input();
 
     // Undo
-    auto event = history.pop();
+    const auto event = history.pop();
     switch(event.type) {
     case Action::Delete:
         return event.text;
@@ -332,7 +332,7 @@ int main(int argc, char **argv)
                 if(!needs_undo)
                     history.push(Action::Delete, '\n');
 		auto prior_row = std::prev(cursor.row_it);
-                auto old_len = cursor.row_it->size();
+                const auto old_len = cursor.row_it->size();
 		std::move(cursor.row_it->begin(), cursor.row_it->end(),
 			  std::back_inserter(*prior_row));
                 cursor.row_it = buffer.erase(cursor.row_it);
@@ -387,7 +387,7 @@ int main(int argc, char **argv)
             if(!needs_undo)
                 history.push(Action::Up);
             cursor.move_up();
-	    auto offset = std::min<unsigned long>(cursor.x, cursor.row_it->size());
+	    const auto offset = std::min<unsigned long>(cursor.x, cursor.row_it->size());
             cursor.carriage_return();
             cursor.move_right(offset);
             scroll_up(window, &cursor.y, &top_visible_row, buffer);
@@ -401,7 +401,7 @@ int main(int argc, char **argv)
             if(!needs_undo)
                 history.push(Action::Down);
             cursor.move_down();
-            auto offset = std::min<unsigned long>(cursor.x, cursor.row_it->size());
+            const auto offset = std::min<unsigned long>(cursor.x, cursor.row_it->size());
             cursor.carriage_return();
             cursor.move_right(offset);
             scroll_down(window, &cursor.y, &top_visible_row, cursor.row_it, buffer);
