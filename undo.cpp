@@ -5,6 +5,7 @@
 UndoQueue::UndoQueue()
 {
     m_events.reserve(50);
+    m_it = m_events.begin();
 }
 
 UndoQueue::~UndoQueue()
@@ -41,20 +42,31 @@ void UndoQueue::push(Action event, char letter)
     switch(event) {
     case Action::Delete:
     case Action::Insert:
+        if(m_it != m_events.end())
+            m_events.erase(m_it, m_events.end());
         m_events.push_back({event, letter});
+        m_it = m_events.end();
         break;
     case Action::Left:
     case Action::Right:
     case Action::Up:
     case Action::Down:
+        if(m_it != m_events.end())
+            m_events.erase(m_it, m_events.end());
         m_events.push_back({event});
+        m_it = m_events.end();
         break;
     }
 }
 
-Event UndoQueue::pop()
+Event UndoQueue::undo()
 {
-    const auto back{m_events.back()};
-    m_events.pop_back();
-    return back;
+    if(m_it == m_events.end())
+        --m_it;
+    return *(m_it--);
+}
+
+Event UndoQueue::redo()
+{
+    return *(m_it++);
 }

@@ -15,13 +15,17 @@ struct Event {
 class UndoQueue {
 private:
     std::vector<Event> m_events;
+    std::vector<Event>::iterator m_it;
 public:
     UndoQueue();
     ~UndoQueue();
     /**Immediately pushes an event to the queue*/
     void push(Action event, char letter = 0);
-    Event pop();
+    Event undo();
+    Event redo();
     bool empty() const { return m_events.empty(); }
+    bool at_begin() const { return m_it == m_events.begin(); }
+    bool at_end() const { return m_it == m_events.end(); }
     std::size_t size() const { return m_events.size(); }
 };
 #endif

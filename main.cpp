@@ -178,7 +178,7 @@ public:
         ++row_it;
     }
 
-    void carriage_return()
+    void move_line_start()
     {
         col_it = row_it->begin();
         x = 0;
@@ -191,27 +191,48 @@ public:
     }
 };
 
-int get_input(Screen &window, bool needs_undo, UndoQueue &history)
+int get_input(Screen &window, bool needs_undo, bool needs_redo,
+              UndoQueue &history)
 {
-    if(!needs_undo || history.empty())
+    if(history.empty())
         // Common case
         return window.get_input();
 
-    // Undo
-    const auto event = history.pop();
-    switch(event.type) {
-    case Action::Delete:
-        return event.text;
-    case Action::Insert:
-        return Key_Backspace;
-    case Action::Left:
-        return Key_Right;
-    case Action::Right:
-        return Key_Left;
-    case Action::Up:
-        return Key_Down;
-    case Action::Down:
-        return Key_Up;
+    if(needs_undo && !history.at_begin()) {
+        // Undo
+        const auto event = history.undo();
+        switch(event.type) {
+        case Action::Delete:
+            return event.text;
+        case Action::Insert:
+            return Key_Backspace;
+        case Action::Left:
+            return Key_Right;
+        case Action::Right:
+            return Key_Left;
+        case Action::Up:
+            return Key_Down;
+        case Action::Down:
+            return Key_Up;
+        }
+    } else if(needs_redo && !history.at_end()) {
+        const auto event = history.redo();
+        switch(event.type) {
+        case Action::Delete:
+            return Key_Backspace;
+        case Action::Insert:
+            return event.text;
+        case Action::Left:
+            return Key_Left;
+        case Action::Right:
+            return Key_Right;
+        case Action::Up:
+            return Key_Up;
+        case Action::Down:
+            return Key_Down;
+        }
+    } else {
+        return window.get_input();
     }
 }
 
@@ -247,8 +268,9 @@ int main(int argc, char **argv)
     bool needs_redraw = false;
     bool done = false;
     bool needs_undo = false;
+    bool needs_redo = false;
     int input;
-    while(!done && (input = get_input(window, needs_undo, history))) {
+    while(!done && (input = get_input(window, needs_undo, needs_redo, history))) {
 	if(input == Key_Resize) {
 	    window.clear();
 	    draw(window, buffer, top_visible_row);
@@ -281,6 +303,11 @@ int main(int argc, char **argv)
             if(!history.empty())
                 needs_undo = true;
             continue;
+        case ctrl('y'):
+             // Redo
+            if(!history.empty())
+                needs_redo = true;
+            continue;
 	case Key_Enter:
 	case Key_Enter2:
 	    if(cursor.col_it == cursor.row_it->begin() && !cursor.row_it->empty()) {
@@ -288,12 +315,12 @@ int main(int argc, char **argv)
 		// newline goes before the cursor's row
                 cursor.row_it = buffer.emplace(cursor.row_it);
                 cursor.move_down();
-                cursor.carriage_return();
+                cursor.move_line_start();
 	    } else if(cursor.col_it == cursor.row_it->end()) {
 		// If at end of line, newline goes after the cursor's row
                 cursor.move_down();
                 cursor.row_it = buffer.emplace(cursor.row_it);
-                cursor.carriage_return();
+                cursor.move_line_start();
 	    } else {
 		// If in middle of line, all text after newline goes to next line
 		auto next_row = buffer.emplace(std::next(cursor.row_it));
@@ -301,9 +328,9 @@ int main(int argc, char **argv)
 			  std::back_inserter(*next_row));
 		cursor.col_it = cursor.row_it->erase(cursor.col_it, cursor.row_it->end());
                 cursor.move_down();
-                cursor.carriage_return();
+                cursor.move_line_start();
 	    }
-            if(!needs_undo)
+            if(!needs_undo && !needs_redo)
                 history.push(Action::Insert, '\n');
             scroll_down(window, &cursor.y, &top_visible_row, cursor.row_it, buffer);
 	    window.clear();
@@ -316,12 +343,12 @@ int main(int argc, char **argv)
 	    if(cursor.col_it != cursor.row_it->begin()) {
 		// If line isn't empty, just remove the character
                 cursor.move_left();
-                if(!needs_undo)
+                if(!needs_undo && !needs_redo)
                     history.push(Action::Delete, *cursor.col_it);
 		cursor.col_it = cursor.row_it->erase(cursor.col_it);
 	    } else if(cursor.row_it->empty() && cursor.row_it != buffer.begin()) {
 		// If line is empty and not the first row, delete that line
-                if(!needs_undo)
+                if(!needs_undo && !needs_redo)
                     history.push(Action::Delete, '\n');
                 cursor.row_it = buffer.erase(cursor.row_it);
                 cursor.move_up();
@@ -329,7 +356,7 @@ int main(int argc, char **argv)
 	    } else if(cursor.row_it != buffer.begin()) {
 		// If deleting newline in front of line with text, move text of
 		// that line to the end of the prior line
-                if(!needs_undo)
+                if(!needs_undo && !needs_redo)
                     history.push(Action::Delete, '\n');
 		auto prior_row = std::prev(cursor.row_it);
                 const auto old_len = cursor.row_it->size();
@@ -350,15 +377,15 @@ int main(int argc, char **argv)
 	case Key_Right:
 	    if(cursor.col_it != cursor.row_it->end()) {
 		// Go right as long as there is text left to go over
-                if(!needs_undo)
+                if(!needs_undo && !needs_redo)
                     history.push(Action::Right);
 		cursor.move_right();
 	    } else if(std::next(cursor.row_it) != buffer.end()) {
 		// Can't go right anymore at buffer end
-                if(!needs_undo)
+                if(!needs_undo && !needs_redo)
                     history.push(Action::Right);
                 cursor.move_down();
-                cursor.carriage_return();
+                cursor.move_line_start();
                 scroll_down(window, &cursor.y, &top_visible_row, cursor.row_it, buffer);
 	    }
 	    cursor.refresh();
@@ -367,12 +394,12 @@ int main(int argc, char **argv)
 	case Key_Left:
 	    if(cursor.col_it != cursor.row_it->begin()) {
 		// Go left as long as there is text left to go over
-                if(!needs_undo)
+                if(!needs_undo && !needs_redo)
                     history.push(Action::Left);
 		cursor.move_left();
 	    } else if(cursor.row_it != buffer.begin()) {
 		// Can't go left anymore at buffer start
-                if(!needs_undo)
+                if(!needs_undo && !needs_redo)
                     history.push(Action::Left);
 		cursor.move_up();
 		cursor.move_line_end();
@@ -384,11 +411,11 @@ int main(int argc, char **argv)
 	case Key_Up: {
 	    if(cursor.row_it == buffer.begin())
                 break;
-            if(!needs_undo)
+            if(!needs_undo && !needs_redo)
                 history.push(Action::Up);
             cursor.move_up();
 	    const auto offset = std::min<unsigned long>(cursor.x, cursor.row_it->size());
-            cursor.carriage_return();
+            cursor.move_line_start();
             cursor.move_right(offset);
             scroll_up(window, &cursor.y, &top_visible_row, buffer);
 	    cursor.refresh();
@@ -398,11 +425,11 @@ int main(int argc, char **argv)
 	case Key_Down: {
 	    if(std::next(cursor.row_it) == buffer.end())
 		break;
-            if(!needs_undo)
+            if(!needs_undo && !needs_redo)
                 history.push(Action::Down);
             cursor.move_down();
             const auto offset = std::min<unsigned long>(cursor.x, cursor.row_it->size());
-            cursor.carriage_return();
+            cursor.move_line_start();
             cursor.move_right(offset);
             scroll_down(window, &cursor.y, &top_visible_row, cursor.row_it, buffer);
 	    cursor.refresh();
@@ -410,7 +437,7 @@ int main(int argc, char **argv)
 	    break;
 	}
 	case Key_Tab:
-            if(!needs_undo) {
+            if(!needs_undo && !needs_redo) {
                 for(std::size_t i = 0; i < TabSize; ++i)
                     history.push(Action::Insert, ' ');
             }
@@ -421,7 +448,7 @@ int main(int argc, char **argv)
 	    window.present();
 	    break;
 	default:
-            if(!needs_undo)
+            if(!needs_undo && !needs_redo)
                 history.push(Action::Insert, input);
             cursor.col_it = cursor.row_it->insert(cursor.col_it, input);
             cursor.move_right();
@@ -431,6 +458,7 @@ int main(int argc, char **argv)
         }
         // End undo mode if currently in it
         needs_undo = false;
+        needs_redo = false;
     }
 
     return 0;
