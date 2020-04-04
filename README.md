@@ -12,12 +12,11 @@ you find it interesting, at least from a programming standpoint.
 
 - Fast syntax highlighting for C++, Markdown, and MIPS assembly
   (activated by file extension)
-- Basic undo functionality
-- File saving/loading, with editing occurring in-memory
+- Basic undo/redo functionality
 - Small implementation; around 900 lines of C++ code (not including generated code)
-- Low CPU and memory usage
+- Extremely low CPU and memory usage
 - Scrolling using arrow keys
-- Works on any terminal supported by ncurses (essentially anything)
+- Works on any terminal supported by ncurses (essentially anything Unix-like)
 
 ## Key Bindings
 
@@ -27,6 +26,8 @@ you find it interesting, at least from a programming standpoint.
 
 **Ctrl-z** : Undo last action (e.g. moving left one character, deleting
 a character)
+
+**Ctri-y** : Redo last action
 
 **Left and Right Arrows** : Move cursor one character forward/backward
 

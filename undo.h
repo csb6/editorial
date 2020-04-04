@@ -25,7 +25,7 @@ public:
     Event redo();
     bool empty() const { return m_events.empty(); }
     bool at_begin() const { return m_it == m_events.begin(); }
-    bool at_end() const { return m_it == m_events.end(); }
+    bool at_end() const { return m_it >= std::prev(m_events.end()); }
     std::size_t size() const { return m_events.size(); }
 };
 #endif

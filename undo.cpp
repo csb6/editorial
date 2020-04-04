@@ -68,5 +68,5 @@ Event UndoQueue::undo()
 
 Event UndoQueue::redo()
 {
-    return *(m_it++);
+    return *(++m_it);
 }
