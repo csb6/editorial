@@ -191,16 +191,26 @@ public:
     }
 };
 
-int get_input(Screen &window, bool needs_undo, bool needs_redo,
-              UndoQueue &history)
-{
-    if(history.empty())
-        // Common case
-        return window.get_input();
+class Input {
+public:
+    enum class Mode : char {
+        Undo, Redo, InUndoRedo, None
+    };
+private:
+    Screen &m_window;
+    UndoQueue m_history;
+    Mode m_mode = Mode::None;
 
-    if(needs_undo && !history.at_begin()) {
-        // Undo
-        const auto event = history.undo();
+    int get_undo()
+    {
+        if(m_history.empty() || m_history.at_begin()) {
+            m_mode = Mode::None;
+            return m_window.get_input();
+        }
+
+        const Event event{m_history.undo()};
+        m_mode = Mode::InUndoRedo;
+
         switch(event.type) {
         case Action::Delete:
             return event.text;
@@ -215,26 +225,63 @@ int get_input(Screen &window, bool needs_undo, bool needs_redo,
         case Action::Down:
             return Key_Up;
         }
-    } else if(needs_redo && !history.at_end()) {
-        const auto event = history.redo();
-        switch(event.type) {
-        case Action::Delete:
-            return Key_Backspace;
-        case Action::Insert:
-            return event.text;
-        case Action::Left:
-            return Key_Left;
-        case Action::Right:
-            return Key_Right;
-        case Action::Up:
-            return Key_Up;
-        case Action::Down:
-            return Key_Down;
-        }
-    } else {
-        return window.get_input();
     }
-}
+
+    int get_redo()
+    {
+        if(m_history.empty() || m_history.at_end()) {
+            m_mode = Mode::None;
+            return m_window.get_input();
+        }
+
+        const Event event{m_history.redo()};
+        m_mode = Mode::InUndoRedo;
+
+        switch(event.type) {
+        case Action::Delete:
+            return Key_Backspace;
+        case Action::Insert:
+            return event.text;
+        case Action::Left:
+            return Key_Left;
+        case Action::Right:
+            return Key_Right;
+        case Action::Up:
+            return Key_Up;
+        case Action::Down:
+            return Key_Down;
+        }
+    }
+public:
+    explicit Input(Screen &window)
+        : m_window(window)
+    {}
+
+    void set_mode(Mode value) { m_mode = value; }
+
+    void push(Action event, char letter = 0)
+    {
+        // Ignore any events occurring when undoing/redoing
+        if(m_mode == Mode::None)
+            m_history.push(event, letter);
+    }
+
+    int get()
+    {
+        switch(m_mode) {
+        case Mode::InUndoRedo:
+            m_mode = Mode::None;
+            break;
+        case Mode::Undo:
+            return get_undo();
+        case Mode::Redo:
+            return get_redo();
+        default:
+            break;
+        }
+        return m_window.get_input();
+    }
+};
 
 
 int main(int argc, char **argv)
@@ -256,9 +303,9 @@ int main(int argc, char **argv)
     else
         highlight_mode = text_mode;
 
-    UndoQueue history;
     Screen window;
     Cursor cursor(window, buffer);
+    Input input_handler(window);
     // The index of the row in the buffer at the top of the screen
     int top_visible_row = 0;
     draw(window, buffer);
@@ -267,10 +314,8 @@ int main(int argc, char **argv)
     // Flag to redraw screen on next tick
     bool needs_redraw = false;
     bool done = false;
-    bool needs_undo = false;
-    bool needs_redo = false;
     int input;
-    while(!done && (input = get_input(window, needs_undo, needs_redo, history))) {
+    while(!done && (input = input_handler.get())) {
 	if(input == Key_Resize) {
 	    window.clear();
 	    draw(window, buffer, top_visible_row);
@@ -300,14 +345,12 @@ int main(int argc, char **argv)
 	    break;
         case ctrl('z'):
             // Undo
-            if(!history.empty())
-                needs_undo = true;
-            continue;
+            input_handler.set_mode(Input::Mode::Undo);
+            break;
         case ctrl('y'):
              // Redo
-            if(!history.empty())
-                needs_redo = true;
-            continue;
+            input_handler.set_mode(Input::Mode::Redo);
+            break;
 	case Key_Enter:
 	case Key_Enter2:
 	    if(cursor.col_it == cursor.row_it->begin() && !cursor.row_it->empty()) {
@@ -330,8 +373,7 @@ int main(int argc, char **argv)
                 cursor.move_down();
                 cursor.move_line_start();
 	    }
-            if(!needs_undo && !needs_redo)
-                history.push(Action::Insert, '\n');
+            input_handler.push(Action::Insert, '\n');
             scroll_down(window, &cursor.y, &top_visible_row, cursor.row_it, buffer);
 	    window.clear();
 	    draw(window, buffer, top_visible_row);
@@ -343,21 +385,18 @@ int main(int argc, char **argv)
 	    if(cursor.col_it != cursor.row_it->begin()) {
 		// If line isn't empty, just remove the character
                 cursor.move_left();
-                if(!needs_undo && !needs_redo)
-                    history.push(Action::Delete, *cursor.col_it);
+                input_handler.push(Action::Delete, *cursor.col_it);
 		cursor.col_it = cursor.row_it->erase(cursor.col_it);
 	    } else if(cursor.row_it->empty() && cursor.row_it != buffer.begin()) {
 		// If line is empty and not the first row, delete that line
-                if(!needs_undo && !needs_redo)
-                    history.push(Action::Delete, '\n');
+                input_handler.push(Action::Delete, '\n');
                 cursor.row_it = buffer.erase(cursor.row_it);
                 cursor.move_up();
                 cursor.move_line_end();
 	    } else if(cursor.row_it != buffer.begin()) {
 		// If deleting newline in front of line with text, move text of
 		// that line to the end of the prior line
-                if(!needs_undo && !needs_redo)
-                    history.push(Action::Delete, '\n');
+                input_handler.push(Action::Delete, '\n');
 		auto prior_row = std::prev(cursor.row_it);
                 const auto old_len = cursor.row_it->size();
 		std::move(cursor.row_it->begin(), cursor.row_it->end(),
@@ -377,13 +416,11 @@ int main(int argc, char **argv)
 	case Key_Right:
 	    if(cursor.col_it != cursor.row_it->end()) {
 		// Go right as long as there is text left to go over
-                if(!needs_undo && !needs_redo)
-                    history.push(Action::Right);
+                input_handler.push(Action::Right);
 		cursor.move_right();
 	    } else if(std::next(cursor.row_it) != buffer.end()) {
 		// Can't go right anymore at buffer end
-                if(!needs_undo && !needs_redo)
-                    history.push(Action::Right);
+                input_handler.push(Action::Right);
                 cursor.move_down();
                 cursor.move_line_start();
                 scroll_down(window, &cursor.y, &top_visible_row, cursor.row_it, buffer);
@@ -394,13 +431,11 @@ int main(int argc, char **argv)
 	case Key_Left:
 	    if(cursor.col_it != cursor.row_it->begin()) {
 		// Go left as long as there is text left to go over
-                if(!needs_undo && !needs_redo)
-                    history.push(Action::Left);
+                input_handler.push(Action::Left);
 		cursor.move_left();
 	    } else if(cursor.row_it != buffer.begin()) {
 		// Can't go left anymore at buffer start
-                if(!needs_undo && !needs_redo)
-                    history.push(Action::Left);
+                input_handler.push(Action::Left);
 		cursor.move_up();
 		cursor.move_line_end();
                 scroll_up(window, &cursor.y, &top_visible_row, buffer);
@@ -411,8 +446,7 @@ int main(int argc, char **argv)
 	case Key_Up: {
 	    if(cursor.row_it == buffer.begin())
                 break;
-            if(!needs_undo && !needs_redo)
-                history.push(Action::Up);
+            input_handler.push(Action::Up);
             cursor.move_up();
 	    const auto offset = std::min<unsigned long>(cursor.x, cursor.row_it->size());
             cursor.move_line_start();
@@ -425,8 +459,7 @@ int main(int argc, char **argv)
 	case Key_Down: {
 	    if(std::next(cursor.row_it) == buffer.end())
 		break;
-            if(!needs_undo && !needs_redo)
-                history.push(Action::Down);
+            input_handler.push(Action::Down);
             cursor.move_down();
             const auto offset = std::min<unsigned long>(cursor.x, cursor.row_it->size());
             cursor.move_line_start();
@@ -437,10 +470,8 @@ int main(int argc, char **argv)
 	    break;
 	}
 	case Key_Tab:
-            if(!needs_undo && !needs_redo) {
-                for(std::size_t i = 0; i < TabSize; ++i)
-                    history.push(Action::Insert, ' ');
-            }
+            for(std::size_t i = 0; i < TabSize; ++i)
+                input_handler.push(Action::Insert, ' ');
 	    cursor.col_it = cursor.row_it->insert(cursor.col_it, TabSize, ' ');
             cursor.move_right(TabSize);
 	    draw(window, buffer, top_visible_row);
@@ -448,17 +479,13 @@ int main(int argc, char **argv)
 	    window.present();
 	    break;
 	default:
-            if(!needs_undo && !needs_redo)
-                history.push(Action::Insert, input);
+            input_handler.push(Action::Insert, input);
             cursor.col_it = cursor.row_it->insert(cursor.col_it, input);
             cursor.move_right();
 	    draw(window, buffer, top_visible_row);
 	    cursor.refresh();
 	    window.present();
         }
-        // End undo mode if currently in it
-        needs_undo = false;
-        needs_redo = false;
     }
 
     return 0;

@@ -3,6 +3,7 @@
 *#
 undo
 *.o
+*.dSYM
 editorial
 scanner
 cpp_matcher.h

@@ -20,7 +20,7 @@ public:
     UndoQueue();
     ~UndoQueue();
     /**Immediately pushes an event to the queue*/
-    void push(Action event, char letter = 0);
+    void push(Action event, char letter);
     Event undo();
     Event redo();
     bool empty() const { return m_events.empty(); }
