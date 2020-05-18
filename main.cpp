@@ -14,7 +14,6 @@
 #include <string_view>
 #include "screen.h"
 #include "syntax-highlight.h"
-#include "undo.h"
 
 constexpr std::size_t TabSize = 4; // in spaces
 
@@ -191,25 +190,31 @@ public:
     }
 };
 
+
 class Input {
 public:
     enum class Mode : char {
-        Undo, Redo, InUndoRedo, None
+        Undo, InUndo, None
+    };
+
+    enum class Action : char {
+        Delete, Insert, Left, Right, Up, Down
     };
 private:
+    struct Event {
+        Action type;
+        char text;
+    };
+
     Screen &m_window;
-    UndoQueue m_history;
+    std::vector<Event> m_history;
     Mode m_mode = Mode::None;
 
     int get_undo()
     {
-        if(m_history.empty() || m_history.at_begin()) {
-            m_mode = Mode::None;
-            return m_window.get_input();
-        }
-
-        const Event event{m_history.undo()};
-        m_mode = Mode::InUndoRedo;
+        const Event event{m_history.back()};
+        m_history.pop_back();
+        m_mode = Mode::InUndo;
 
         switch(event.type) {
         case Action::Delete:
@@ -224,32 +229,6 @@ private:
             return Key_Down;
         case Action::Down:
             return Key_Up;
-        }
-    }
-
-    int get_redo()
-    {
-        if(m_history.empty() || m_history.at_end()) {
-            m_mode = Mode::None;
-            return m_window.get_input();
-        }
-
-        const Event event{m_history.redo()};
-        m_mode = Mode::InUndoRedo;
-
-        switch(event.type) {
-        case Action::Delete:
-            return Key_Backspace;
-        case Action::Insert:
-            return event.text;
-        case Action::Left:
-            return Key_Left;
-        case Action::Right:
-            return Key_Right;
-        case Action::Up:
-            return Key_Up;
-        case Action::Down:
-            return Key_Down;
         }
     }
 public:
@@ -261,25 +240,25 @@ public:
 
     void push(Action event, char letter = 0)
     {
-        // Ignore any events occurring when undoing/redoing
+        // Ignore any events occurring when in process of undoing
         if(m_mode == Mode::None)
-            m_history.push(event, letter);
+            m_history.push_back({event, letter});
     }
 
     int get()
     {
-        switch(m_mode) {
-        case Mode::InUndoRedo:
+        if(m_history.empty()) {
             m_mode = Mode::None;
-            break;
+            return m_window.get_input();
+        }
+
+        switch(m_mode) {
         case Mode::Undo:
             return get_undo();
-        case Mode::Redo:
-            return get_redo();
         default:
-            break;
+            m_mode = Mode::None;
+            return m_window.get_input();
         }
-        return m_window.get_input();
     }
 };
 
@@ -347,10 +326,6 @@ int main(int argc, char **argv)
             // Undo
             input_handler.set_mode(Input::Mode::Undo);
             break;
-        case ctrl('y'):
-             // Redo
-            input_handler.set_mode(Input::Mode::Redo);
-            break;
 	case Key_Enter:
 	case Key_Enter2:
 	    if(cursor.col_it == cursor.row_it->begin() && !cursor.row_it->empty()) {
@@ -373,7 +348,7 @@ int main(int argc, char **argv)
                 cursor.move_down();
                 cursor.move_line_start();
 	    }
-            input_handler.push(Action::Insert, '\n');
+            input_handler.push(Input::Action::Insert, '\n');
             scroll_down(window, &cursor.y, &top_visible_row, cursor.row_it, buffer);
 	    window.clear();
 	    draw(window, buffer, top_visible_row);
@@ -385,18 +360,18 @@ int main(int argc, char **argv)
 	    if(cursor.col_it != cursor.row_it->begin()) {
 		// If line isn't empty, just remove the character
                 cursor.move_left();
-                input_handler.push(Action::Delete, *cursor.col_it);
+                input_handler.push(Input::Action::Delete, *cursor.col_it);
 		cursor.col_it = cursor.row_it->erase(cursor.col_it);
 	    } else if(cursor.row_it->empty() && cursor.row_it != buffer.begin()) {
 		// If line is empty and not the first row, delete that line
-                input_handler.push(Action::Delete, '\n');
+                input_handler.push(Input::Action::Delete, '\n');
                 cursor.row_it = buffer.erase(cursor.row_it);
                 cursor.move_up();
                 cursor.move_line_end();
 	    } else if(cursor.row_it != buffer.begin()) {
 		// If deleting newline in front of line with text, move text of
 		// that line to the end of the prior line
-                input_handler.push(Action::Delete, '\n');
+                input_handler.push(Input::Action::Delete, '\n');
 		auto prior_row = std::prev(cursor.row_it);
                 const auto old_len = cursor.row_it->size();
 		std::move(cursor.row_it->begin(), cursor.row_it->end(),
@@ -416,11 +391,11 @@ int main(int argc, char **argv)
 	case Key_Right:
 	    if(cursor.col_it != cursor.row_it->end()) {
 		// Go right as long as there is text left to go over
-                input_handler.push(Action::Right);
+                input_handler.push(Input::Action::Right);
 		cursor.move_right();
 	    } else if(std::next(cursor.row_it) != buffer.end()) {
 		// Can't go right anymore at buffer end
-                input_handler.push(Action::Right);
+                input_handler.push(Input::Action::Right);
                 cursor.move_down();
                 cursor.move_line_start();
                 scroll_down(window, &cursor.y, &top_visible_row, cursor.row_it, buffer);
@@ -431,11 +406,11 @@ int main(int argc, char **argv)
 	case Key_Left:
 	    if(cursor.col_it != cursor.row_it->begin()) {
 		// Go left as long as there is text left to go over
-                input_handler.push(Action::Left);
+                input_handler.push(Input::Action::Left);
 		cursor.move_left();
 	    } else if(cursor.row_it != buffer.begin()) {
 		// Can't go left anymore at buffer start
-                input_handler.push(Action::Left);
+                input_handler.push(Input::Action::Left);
 		cursor.move_up();
 		cursor.move_line_end();
                 scroll_up(window, &cursor.y, &top_visible_row, buffer);
@@ -446,7 +421,7 @@ int main(int argc, char **argv)
 	case Key_Up: {
 	    if(cursor.row_it == buffer.begin())
                 break;
-            input_handler.push(Action::Up);
+            input_handler.push(Input::Action::Up);
             cursor.move_up();
 	    const auto offset = std::min<unsigned long>(cursor.x, cursor.row_it->size());
             cursor.move_line_start();
@@ -459,7 +434,7 @@ int main(int argc, char **argv)
 	case Key_Down: {
 	    if(std::next(cursor.row_it) == buffer.end())
 		break;
-            input_handler.push(Action::Down);
+            input_handler.push(Input::Action::Down);
             cursor.move_down();
             const auto offset = std::min<unsigned long>(cursor.x, cursor.row_it->size());
             cursor.move_line_start();
@@ -471,7 +446,7 @@ int main(int argc, char **argv)
 	}
 	case Key_Tab:
             for(std::size_t i = 0; i < TabSize; ++i)
-                input_handler.push(Action::Insert, ' ');
+                input_handler.push(Input::Action::Insert, ' ');
 	    cursor.col_it = cursor.row_it->insert(cursor.col_it, TabSize, ' ');
             cursor.move_right(TabSize);
 	    draw(window, buffer, top_visible_row);
@@ -479,7 +454,7 @@ int main(int argc, char **argv)
 	    window.present();
 	    break;
 	default:
-            input_handler.push(Action::Insert, input);
+            input_handler.push(Input::Action::Insert, input);
             cursor.col_it = cursor.row_it->insert(cursor.col_it, input);
             cursor.move_right();
 	    draw(window, buffer, top_visible_row);
