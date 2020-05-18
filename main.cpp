@@ -193,10 +193,6 @@ public:
 
 class Input {
 public:
-    enum class Mode : char {
-        Undo, InUndo, None
-    };
-
     enum class Action : char {
         Delete, Insert, Left, Right, Up, Down
     };
@@ -207,57 +203,70 @@ private:
     };
 
     Screen &m_window;
+    // All of the events that can be undone (most pressing is at end())
     std::vector<Event> m_history;
-    Mode m_mode = Mode::None;
-
-    int get_undo()
-    {
-        const Event event{m_history.back()};
-        m_history.pop_back();
-        m_mode = Mode::InUndo;
-
-        switch(event.type) {
-        case Action::Delete:
-            return event.text;
-        case Action::Insert:
-            return Key_Backspace;
-        case Action::Left:
-            return Key_Right;
-        case Action::Right:
-            return Key_Left;
-        case Action::Up:
-            return Key_Down;
-        case Action::Down:
-            return Key_Up;
-        }
-    }
+    // The keypresses that are to be done next (most pressing is at begin())
+    std::vector<int> m_queue;
+    bool m_in_undo = false;
 public:
     explicit Input(Screen &window)
         : m_window(window)
-    {}
+    {
+        m_history.reserve(200);
+    }
 
-    void set_mode(Mode value) { m_mode = value; }
+    void set_undo()
+    {
+        if(!m_queue.empty())
+            return;
+
+        m_in_undo = true;
+        while(!m_history.empty()) {
+            const Event undo_event{m_history.back()};
+            m_history.pop_back();
+
+            switch(undo_event.type) {
+            case Action::Insert:
+                // Each insertion/deletion gets its own undo operation
+                m_queue.push_back(Key_Backspace);
+                return;
+            case Action::Delete:
+                // Each insertion/deletion gets its own undo operation
+                m_queue.push_back(undo_event.text);
+                return;
+            // Bundle all moving operations together
+            // in a single undo move
+            case Action::Left:
+                m_queue.push_back(Key_Right);
+                break;
+            case Action::Right:
+                m_queue.push_back(Key_Left);
+                break;
+            case Action::Up:
+                m_queue.push_back(Key_Down);
+                break;
+            case Action::Down:
+                m_queue.push_back(Key_Up);
+                break;
+            }
+        }
+    }
 
     void push(Action event, char letter = 0)
     {
-        // Ignore any events occurring when in process of undoing
-        if(m_mode == Mode::None)
+        if(!m_in_undo)
             m_history.push_back({event, letter});
     }
 
     int get()
     {
-        if(m_history.empty()) {
-            m_mode = Mode::None;
+        if(m_queue.empty()) {
+            m_in_undo = false;
             return m_window.get_input();
-        }
-
-        switch(m_mode) {
-        case Mode::Undo:
-            return get_undo();
-        default:
-            m_mode = Mode::None;
-            return m_window.get_input();
+        } else {
+            const int keypress{m_queue.front()};
+            m_queue.erase(m_queue.begin());
+            return keypress;
         }
     }
 };
@@ -324,7 +333,7 @@ int main(int argc, char **argv)
 	    break;
         case ctrl('z'):
             // Undo
-            input_handler.set_mode(Input::Mode::Undo);
+            input_handler.set_undo();
             break;
 	case Key_Enter:
 	case Key_Enter2:
