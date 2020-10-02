@@ -336,27 +336,13 @@ int main(int argc, char **argv)
             input_handler.set_undo();
             break;
 	case Key_Enter:
-	case Key_Enter2:
-	    if(cursor.col_it == cursor.row_it->begin() && !cursor.row_it->empty()) {
-		// If at beginning of line with at least some text,
-		// newline goes before the cursor's row
-                cursor.row_it = buffer.emplace(cursor.row_it);
-                cursor.move_down();
-                cursor.move_line_start();
-	    } else if(cursor.col_it == cursor.row_it->end()) {
-		// If at end of line, newline goes after the cursor's row
-                cursor.move_down();
-                cursor.row_it = buffer.emplace(cursor.row_it);
-                cursor.move_line_start();
-	    } else {
-		// If in middle of line, all text after newline goes to next line
-		auto next_row = buffer.emplace(std::next(cursor.row_it));
-		std::copy(cursor.col_it, cursor.row_it->end(),
-			  std::back_inserter(*next_row));
-		cursor.col_it = cursor.row_it->erase(cursor.col_it, cursor.row_it->end());
-                cursor.move_down();
-                cursor.move_line_start();
-	    }
+	case Key_Enter2: {
+            auto next_row = buffer.emplace(std::next(cursor.row_it));
+            std::copy(cursor.col_it, cursor.row_it->end(),
+                      std::back_inserter(*next_row));
+            cursor.col_it = cursor.row_it->erase(cursor.col_it, cursor.row_it->end());
+            cursor.move_down();
+            cursor.move_line_start();
             input_handler.push(Input::Action::Insert, '\n');
             scroll_down(window, &cursor.y, &top_visible_row, cursor.row_it, buffer);
 	    window.clear();
@@ -364,6 +350,7 @@ int main(int argc, char **argv)
             cursor.refresh();
 	    window.present();
 	    break;
+        }
 	case Key_Backspace:
 	case Key_Backspace2:
 	    if(cursor.col_it != cursor.row_it->begin()) {
@@ -371,14 +358,8 @@ int main(int argc, char **argv)
                 cursor.move_left();
                 input_handler.push(Input::Action::Delete, *cursor.col_it);
 		cursor.col_it = cursor.row_it->erase(cursor.col_it);
-	    } else if(cursor.row_it->empty() && cursor.row_it != buffer.begin()) {
-		// If line is empty and not the first row, delete that line
-                input_handler.push(Input::Action::Delete, '\n');
-                cursor.row_it = buffer.erase(cursor.row_it);
-                cursor.move_up();
-                cursor.move_line_end();
 	    } else if(cursor.row_it != buffer.begin()) {
-		// If deleting newline in front of line with text, move text of
+		// If deleting a newline, move text of
 		// that line to the end of the prior line
                 input_handler.push(Input::Action::Delete, '\n');
 		auto prior_row = std::prev(cursor.row_it);

@@ -2,7 +2,7 @@
 
 # Editorial
 
-A text editor for your terminal, written in C++17.
+A text editor for your terminal, written in C++20.
 
 **Please note:** This is probably not a replacement for your
 editor of choice. It has a pretty small feature set, but I hope that
@@ -26,8 +26,6 @@ you find it interesting, at least from a programming standpoint.
 
 **Ctrl-z** : Undo last action (e.g. moving left one character, deleting
 a character)
-
-**Ctri-y** : Redo last action
 
 **Left and Right Arrows** : Move cursor one character forward/backward
 
