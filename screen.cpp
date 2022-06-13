@@ -1,4 +1,4 @@
-#include <curses.h>
+#include <ncurses.h>
 #include "screen.h"
 #include <stdexcept>
 
@@ -42,7 +42,7 @@ int Screen::width() const { return COLS; }
 
 int Screen::height() const { return LINES; }
 
-void Screen::clear() { ::clear(); }
+void Screen::clear() { ::erase(); }
 
 void Screen::present() { refresh(); }
 

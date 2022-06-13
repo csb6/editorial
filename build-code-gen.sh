@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 
 #Set this to your compiler (e.g. g++)
-compiler=clang++
+compiler=g++
 
 #If any command fails, exit the script
 set -e
